@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useAppwrite } from "@/app/appwrite-provider";
 import { resetMasterpassAndWipe } from "@/lib/appwrite";
+import { redirectToAuthIDM } from "@/lib/authUrl";
 import toast from "react-hot-toast";
 import VaultGuard from "@/components/layout/VaultGuard";
 
@@ -15,12 +16,12 @@ export default function MasterpassResetPage() {
   const [step, setStep] = useState<"reset" | "done">("reset");
   const [loading, setLoading] = useState(false);
 
-  // Redirect to masterpass page if not logged in
+  // Redirect to IDM if not logged in
   useEffect(() => {
     if (!user) {
-      router.replace("/masterpass");
+      redirectToAuthIDM();
     }
-  }, [user, router]);
+  }, [user]);
 
   const handleReset = async () => {
     setLoading(true);

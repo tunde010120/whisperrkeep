@@ -21,6 +21,7 @@ import { useAppwrite } from "@/app/appwrite-provider";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { masterPassCrypto } from "@/app/(protected)/masterpass/logic";
+import { redirectToAuthIDM } from "@/lib/authUrl";
 import { Navbar } from "./Navbar";
 
 const navigation = [
@@ -51,7 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user && !isSimplifiedLayout) {
-      router.replace("/masterpass");
+      redirectToAuthIDM();
     }
   }, [loading, user, isSimplifiedLayout, router]);
 
