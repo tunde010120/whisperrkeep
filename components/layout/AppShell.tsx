@@ -22,6 +22,8 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { masterPassCrypto } from "@/app/(protected)/masterpass/logic";
 import { Navbar } from "./Navbar";
+import { PasskeySetup } from "@/components/overlays/passkeySetup";
+import { useState } from "react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -44,10 +46,24 @@ const SIMPLIFIED_LAYOUT_PATHS = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const { user, loading, logout } = useAppwrite();
+  const { user, loading, logout, refresh } = useAppwrite();
   const router = useRouter();
+  const [showPasskeySetup, setShowPasskeySetup] = useState(false);
 
   const isSimplifiedLayout = SIMPLIFIED_LAYOUT_PATHS.includes(pathname);
+
+  useEffect(() => {
+    if (user && !loading) {
+      // Check for passkey enforcement
+      const shouldEnforce = 
+        user.mustCreatePasskey || 
+        (process.env.NEXT_PUBLIC_PASSKEY_ENFORCE === 'true' && !user.isPasskey);
+      
+      if (shouldEnforce && masterPassCrypto.isVaultUnlocked()) {
+        setShowPasskeySetup(true);
+      }
+    }
+  }, [user, loading]);
 
   useEffect(() => {
     if (!loading && !user && !isSimplifiedLayout) {
@@ -249,6 +265,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 aria-label={item.name}
               >
                 <item.icon
+
+      {user && (
+        <PasskeySetup
+          isOpen={showPasskeySetup}
+          onClose={() => setShowPasskeySetup(false)}
+          userId={user.$id}
+          isEnabled={false}
+          onSuccess={() => {
+            setShowPasskeySetup(false);
+            refresh();
+          }}
+          trustUnlocked={true}
+        />
+      )}
                   className={clsx(
                     "mb-1 flex-shrink-0",
                     isBig ? "h-7 w-7" : "h-5 w-5",

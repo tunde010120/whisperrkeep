@@ -10,12 +10,15 @@ import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 import MasterPasswordVerificationDialog from "./MasterPasswordVerificationDialog";
 
+import { masterPassCrypto } from "@/app/(protected)/masterpass/logic";
+
 interface PasskeySetupProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string;
   isEnabled: boolean;
   onSuccess: () => void;
+  trustUnlocked?: boolean;
 }
 
 // Helper to convert ArrayBuffer to Base64 string
@@ -34,20 +37,24 @@ export function PasskeySetup({
   userId,
   isEnabled,
   onSuccess,
+  trustUnlocked = false,
 }: PasskeySetupProps) {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(trustUnlocked && masterPassCrypto.isVaultUnlocked() ? 2 : 1);
   const [loading, setLoading] = useState(false);
   const [masterPassword, setMasterPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [verifyingPassword, setVerifyingPassword] = useState(false);
   const [isVerificationOpen, setIsVerificationOpen] = useState(false);
 
+  // If trustUnlocked is true and vault is unlocked, we skip step 1
+  // But we need to ensure we can get the key later.
+
   const verifyMasterPassword = async () => {
     if (!masterPassword.trim()) {
       toast.error("Please enter your master password.");
       return false;
     }
-
+    // ... existing verification logic ...
     setVerifyingPassword(true);
     try {
       // Derive test key using same logic as masterPassCrypto.unlock
@@ -140,39 +147,48 @@ export function PasskeySetup({
   };
 
   const handleEnable = async () => {
-    if (!masterPassword.trim()) {
+    if (step === 1 && !masterPassword.trim()) {
       toast.error("Please enter your master password.");
       return;
     }
 
     setLoading(true);
     try {
-      // 1. Derive master key from password (same logic as masterPassCrypto.unlock)
-      const encoder = new TextEncoder();
-      const userBytes = encoder.encode(userId);
-      const userSalt = await crypto.subtle.digest("SHA-256", userBytes);
-      const combinedSalt = new Uint8Array(userSalt);
+      let masterKey: CryptoKey;
 
-      const keyMaterial = await crypto.subtle.importKey(
-        "raw",
-        encoder.encode(masterPassword),
-        { name: "PBKDF2" },
-        false,
-        ["deriveBits", "deriveKey"],
-      );
+      if (trustUnlocked && masterPassCrypto.isVaultUnlocked()) {
+        // Use existing unlocked key
+        const key = masterPassCrypto.getMasterKey();
+        if (!key) throw new Error("Vault is locked");
+        masterKey = key;
+      } else {
+        // Derive from password
+        const encoder = new TextEncoder();
+        const userBytes = encoder.encode(userId);
+        const userSalt = await crypto.subtle.digest("SHA-256", userBytes);
+        const combinedSalt = new Uint8Array(userSalt);
 
-      const masterKey = await crypto.subtle.deriveKey(
-        {
-          name: "PBKDF2",
-          salt: combinedSalt,
-          iterations: 200000,
-          hash: "SHA-256",
-        },
-        keyMaterial,
-        { name: "AES-GCM", length: 256 },
-        true,
-        ["encrypt", "decrypt"],
-      );
+        const keyMaterial = await crypto.subtle.importKey(
+          "raw",
+          encoder.encode(masterPassword),
+          { name: "PBKDF2" },
+          false,
+          ["deriveBits", "deriveKey"],
+        );
+
+        masterKey = await crypto.subtle.deriveKey(
+          {
+            name: "PBKDF2",
+            salt: combinedSalt,
+            iterations: 200000,
+            hash: "SHA-256",
+          },
+          keyMaterial,
+          { name: "AES-GCM", length: 256 },
+          true,
+          ["encrypt", "decrypt"],
+        );
+      }
 
       // 2. Generate WebAuthn registration first to get credential data
       const challenge = crypto.getRandomValues(new Uint8Array(32));
@@ -190,7 +206,7 @@ export function PasskeySetup({
           name: userId,
           displayName: userId,
         },
-        pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
+        pubKeyCredParams: [{ alg: -7, type: "public-key" as const }, { alg: -257, type: "public-key" as const }],
         authenticatorSelection: {
           authenticatorAttachment: "platform" as const,
           residentKey: "required" as const,
@@ -204,7 +220,7 @@ export function PasskeySetup({
       const regResp = await startRegistration(registrationOptions);
 
       // 4. Derive Kwrap from WebAuthn credential data
-      // Use credential ID + user ID to deterministically generate Kwrap
+      const encoder = new TextEncoder();
       const credentialData = encoder.encode(regResp.id + userId);
       const kwrapSeed = await crypto.subtle.digest("SHA-256", credentialData);
       const kwrap = await crypto.subtle.importKey(
@@ -232,7 +248,7 @@ export function PasskeySetup({
       combined.set(new Uint8Array(encryptedMasterKey), iv.length);
       const passkeyBlob = arrayBufferToBase64(combined.buffer);
 
-      // 7. Store credential and encrypted blob (no separate kwrap field needed)
+      // 7. Store credential and encrypted blob
       const newCredential = {
         credentialID: regResp.id,
         publicKey: regResp.response.publicKey || "",
@@ -242,6 +258,12 @@ export function PasskeySetup({
 
       // Store in database
       await AppwriteService.setPasskey(userId, passkeyBlob, newCredential);
+      
+      // If we were enforcing passkey, clear the flag
+      const userDoc = await AppwriteService.getUserDoc(userId);
+      if (userDoc && userDoc.mustCreatePasskey) {
+          await AppwriteService.updateUserDoc(userDoc.$id, { mustCreatePasskey: false });
+      }
 
       setStep(3); // Success step
     } catch (error: unknown) {

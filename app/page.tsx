@@ -165,11 +165,7 @@ export default function LandingPage() {
             size="lg" 
             className="gap-2"
             onClick={() => {
-              try {
-                openAuthPopup();
-              } catch (err) {
-                alert(err instanceof Error ? err.message : "Failed to open authentication");
-              }
+              window.location.href = "/register";
             }}
           >
             Get Started Free <ChevronRight className="h-4 w-4" />
@@ -483,11 +479,7 @@ export default function LandingPage() {
             size="lg" 
             className="gap-2"
             onClick={() => {
-              try {
-                openAuthPopup();
-              } catch (err) {
-                alert(err instanceof Error ? err.message : "Failed to open authentication");
-              }
+              window.location.href = "/register";
             }}
           >
             Get Started Free <ChevronRight className="h-4 w-4" />

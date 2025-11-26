@@ -15,6 +15,7 @@ import {
   setMasterpassFlag,
   logoutAppwrite,
   AppwriteService,
+  appwriteAccount,
 } from "@/lib/appwrite";
 import toast from "react-hot-toast";
 import { unlockWithPasskey } from "@/app/(protected)/settings/passkey";
@@ -106,6 +107,30 @@ export function MasterPassModal({ isOpen, onClose }: MasterPassModalProps) {
         );
 
         if (success) {
+          // Check for Auth v2 migration
+          if (user && (!user.authVersion || user.authVersion < 2)) {
+            const oldPassword = sessionStorage.getItem("temp_login_pw");
+            if (oldPassword) {
+              try {
+                // Update Appwrite password to match Master Password
+                await appwriteAccount.updatePassword(masterPassword, oldPassword);
+                
+                // Update user flags
+                await AppwriteService.updateUserDoc(user.$id, {
+                  authVersion: 2,
+                  v2Migrated: true,
+                  mustCreatePasskey: true
+                });
+                
+                toast.success("Account updated! You can now use your Master Password to login.");
+                sessionStorage.removeItem("temp_login_pw");
+              } catch (err) {
+                console.error("Migration failed:", err);
+                // Continue anyway, don't block access
+              }
+            }
+          }
+
           onClose();
           await finalizeAuth({ redirect: true, fallback: "/masterpass" });
         } else {
