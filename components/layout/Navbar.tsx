@@ -62,11 +62,19 @@ export function Navbar() {
             </div>
           </DropdownMenu>
           {!user ? (
-            <Link href="/login">
-              <Button size="sm" variant="outline">
-                Sign In
-              </Button>
-            </Link>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => {
+                try {
+                  openAuthPopup();
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : "Failed to open authentication");
+                }
+              }}
+            >
+              Connect
+            </Button>
           ) : (
             <div className="relative">
               <Button
