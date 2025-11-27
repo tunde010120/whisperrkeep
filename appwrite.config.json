@@ -1681,7 +1681,7 @@
                     "type": "string",
                     "required": false,
                     "array": false,
-                    "size": 200,
+                    "size": 1000,
                     "default": null,
                     "encrypt": true
                 },
