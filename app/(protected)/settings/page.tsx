@@ -78,6 +78,19 @@ export default function SettingsPage() {
   const [passkeySetupOpen, setPasskeySetupOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
+  // Passkey Management State
+  interface PasskeyUIItem {
+    $id: string;
+    name: string;
+    created: string;
+  }
+  const [passkeys, setPasskeys] = useState<PasskeyUIItem[]>([]);
+  const [editingPasskey, setEditingPasskey] = useState<PasskeyUIItem | null>(null);
+  const [passkeyRenameOpen, setPasskeyRenameOpen] = useState(false);
+  const [passkeyRenameValue, setPasskeyRenameValue] = useState("");
+  const [passkeyToDelete, setPasskeyToDelete] = useState<PasskeyUIItem | null>(null);
+  const [isDeletePasskeyModalOpen, setIsDeletePasskeyModalOpen] = useState(false);
+
   // Folder Management State
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   type FolderItem = { $id: string; name: string };
@@ -196,15 +209,101 @@ export default function SettingsPage() {
   }, [user?.$id, syncMfaStatus]);
 
   // Fetch passkey status
-  useEffect(() => {
-    if (user?.$id) {
-      AppwriteService.hasPasskey(user.$id).then(setPasskeyEnabled);
+  const loadPasskeys = useCallback(async () => {
+    if (!user?.$id) return;
+    try {
+      const entries = await AppwriteService.listKeychainEntries(user.$id);
+      const passkeyEntries = entries
+        .filter((k) => k.type === "passkey")
+        .map((k) => {
+          let name = "Unnamed Passkey";
+          let created = k.$createdAt;
+          try {
+            if (k.params) {
+              const params = JSON.parse(k.params);
+              if (params.name) name = params.name;
+              if (params.created) created = params.created;
+            }
+          } catch (e) {
+            // ignore json parse error
+          }
+          return {
+            $id: k.$id,
+            name,
+            created,
+          };
+        });
+      setPasskeys(passkeyEntries);
+      setPasskeyEnabled(passkeyEntries.length > 0);
+    } catch (e) {
+      console.error("Failed to load passkeys", e);
     }
   }, [user?.$id]);
+
+  useEffect(() => {
+    loadPasskeys();
+  }, [loadPasskeys]);
 
   const handleTogglePasskey = async () => {
     if (!user?.$id) return;
     setPasskeySetupOpen(true);
+  };
+
+  const handleRenamePasskey = async () => {
+    if (!editingPasskey || !passkeyRenameValue.trim()) return;
+    setSaving(true);
+    try {
+      // We need to fetch the original entry to preserve other params
+      const entries = await AppwriteService.listKeychainEntries(user!.$id);
+      const entry = entries.find((k) => k.$id === editingPasskey.$id);
+      if (entry) {
+        const params = entry.params ? JSON.parse(entry.params) : {};
+        params.name = passkeyRenameValue;
+        await AppwriteService.updateKeychainEntry(entry.$id, {
+          params: JSON.stringify(params),
+        });
+        toast.success("Passkey renamed!");
+        loadPasskeys();
+        setPasskeyRenameOpen(false);
+        setEditingPasskey(null);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to rename passkey.");
+    }
+    setSaving(false);
+  };
+
+  const handleDeletePasskey = async () => {
+    if (!passkeyToDelete) return;
+    setDangerLoading(true);
+    try {
+      await AppwriteService.deleteKeychainEntry(passkeyToDelete.$id);
+      toast.success("Passkey deleted.");
+      loadPasskeys();
+      setIsDeletePasskeyModalOpen(false);
+      setPasskeyToDelete(null);
+      
+      // If no passkeys left, update user doc flag
+      if (passkeys.length <= 1) {
+         await AppwriteService.removePasskey(user!.$id);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete passkey.");
+    }
+    setDangerLoading(false);
+  };
+
+  const openRenamePasskey = (pk: PasskeyUIItem) => {
+    setEditingPasskey(pk);
+    setPasskeyRenameValue(pk.name);
+    setPasskeyRenameOpen(true);
+  };
+
+  const openDeletePasskey = (pk: PasskeyUIItem) => {
+    setPasskeyToDelete(pk);
+    setIsDeletePasskeyModalOpen(true);
   };
 
   const handleSaveProfile = async () => {
@@ -488,17 +587,54 @@ export default function SettingsPage() {
                     : "Setup Two-Factor Authentication"}
                 </Button>
 
-                <Button
-                  variant={passkeyEnabled ? "default" : "outline"}
-                  className="w-full justify-start gap-2"
-                  onClick={handleTogglePasskey}
-                  disabled={false}
-                >
-                  <Key className="h-4 w-4" />
-                  {passkeyEnabled
-                    ? "✅ Passkey / Biometric Unlock Enabled"
-                    : "Enable Passkey / Biometric Unlock"}
-                </Button>
+                <div className="pt-4 border-t space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Key className="h-4 w-4" />
+                      Passkeys
+                    </label>
+                    <Button size="sm" variant="outline" onClick={handleTogglePasskey}>
+                      + Add Passkey
+                    </Button>
+                  </div>
+                  
+                  {passkeys.length > 0 ? (
+                    <div className="space-y-2">
+                      {passkeys.map((pk) => (
+                        <div key={pk.$id} className="flex items-center justify-between p-2 rounded-md border bg-card/50">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">{pk.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              Added {new Date(pk.created).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openRenamePasskey(pk)}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => openDeletePasskey(pk)}
+                            >
+                              <Trash className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      No passkeys added yet.
+                    </p>
+                  )}
+                </div>
 
                 {/* Vault Timeout Setting */}
                 <div className="pt-4 border-t">
@@ -975,13 +1111,54 @@ export default function SettingsPage() {
           isOpen={passkeySetupOpen}
           onClose={() => setPasskeySetupOpen(false)}
           userId={user?.$id || ""}
-          isEnabled={passkeyEnabled}
           onSuccess={() => {
-            if (user?.$id) {
-              AppwriteService.hasPasskey(user.$id).then(setPasskeyEnabled);
-            }
+            loadPasskeys();
           }}
         />
+        
+        {passkeyRenameOpen && (
+          <Dialog open={passkeyRenameOpen} onClose={() => setPasskeyRenameOpen(false)}>
+            <div className="p-6">
+              <h3 className="text-lg font-bold">Rename Passkey</h3>
+              <div className="mt-4">
+                <Input
+                  value={passkeyRenameValue}
+                  onChange={(e) => setPasskeyRenameValue(e.target.value)}
+                  placeholder="Passkey Name"
+                  autoFocus
+                />
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setPasskeyRenameOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleRenamePasskey} disabled={saving || !passkeyRenameValue.trim()}>
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+          </Dialog>
+        )}
+
+        {isDeletePasskeyModalOpen && (
+          <Dialog open={isDeletePasskeyModalOpen} onClose={() => setIsDeletePasskeyModalOpen(false)}>
+            <div className="p-6">
+              <h3 className="text-lg font-bold">Delete Passkey</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Are you sure you want to delete the passkey "{passkeyToDelete?.name}"?
+                You will no longer be able to use it to unlock your vault.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsDeletePasskeyModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleDeletePasskey} disabled={dangerLoading}>
+                  {dangerLoading ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
+            </div>
+          </Dialog>
+        )}
       </div>
     </VaultGuard>
   );

@@ -426,6 +426,19 @@ export class AppwriteService {
     );
   }
 
+  static async updateKeychainEntry(
+    id: string,
+    data: Partial<Keychain>,
+  ): Promise<Keychain> {
+    const doc = await appwriteDatabases.updateDocument(
+      APPWRITE_DATABASE_ID,
+      APPWRITE_COLLECTION_KEYCHAIN_ID,
+      id,
+      data,
+    );
+    return doc as unknown as Keychain;
+  }
+
   static async createUserDoc(data: Omit<User, "$id">): Promise<User> {
     const doc = await appwriteDatabases.createDocument(
       APPWRITE_DATABASE_ID,
@@ -510,32 +523,38 @@ export class AppwriteService {
   }
 
   /**
+   * Syncs the isPasskey flag on the user document based on actual keychain entries.
+   */
+  static async syncPasskeyStatus(userId: string): Promise<void> {
+    const entries = await this.listKeychainEntries(userId);
+    const hasPasskey = entries.some(e => e.type === 'passkey');
+    
+    const userDoc = await this.getUserDoc(userId);
+    if (userDoc && userDoc.$id) {
+      // Only update if different to save writes
+      if (!!userDoc.isPasskey !== hasPasskey) {
+        await appwriteDatabases.updateDocument(
+            APPWRITE_DATABASE_ID,
+            APPWRITE_COLLECTION_USER_ID,
+            userDoc.$id,
+            { isPasskey: hasPasskey }
+        );
+      }
+    }
+  }
+
+  /**
    * Removes all passkey credentials for the user.
    */
   static async removePasskey(userId: string): Promise<void> {
-    // Remove from keychain
+    // Remove ALL passkeys from keychain
     const entries = await this.listKeychainEntries(userId);
-    const passkeyEntry = entries.find(e => e.type === 'passkey');
-    if (passkeyEntry) {
-      await this.deleteKeychainEntry(passkeyEntry.$id);
-    }
+    const passkeyEntries = entries.filter(e => e.type === 'passkey');
+    
+    await Promise.all(passkeyEntries.map(e => this.deleteKeychainEntry(e.$id)));
 
     // Clear flags on user doc
-    const userDoc = await this.getUserDoc(userId);
-    if (userDoc && userDoc.$id) {
-      await appwriteDatabases.updateDocument(
-        APPWRITE_DATABASE_ID,
-        APPWRITE_COLLECTION_USER_ID,
-        userDoc.$id,
-        {
-          isPasskey: false,
-          passkeyBlob: null,
-          credentialId: null,
-          publicKey: null,
-          counter: null,
-        },
-      );
-    }
+    await this.syncPasskeyStatus(userId);
   }
 
   // Read with automatic decryption

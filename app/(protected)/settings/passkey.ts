@@ -28,12 +28,12 @@ export async function unlockWithPasskey(userId: string): Promise<boolean> {
   try {
     const toastId = toast.loading("Waiting for passkey interaction...");
 
-    // 1. Get keychain entries for passkey
+    // 1. Get ALL keychain entries for passkey
     const keychainEntries = await AppwriteService.listKeychainEntries(userId);
-    const passkeyEntry = keychainEntries.find(k => k.type === 'passkey');
+    const passkeyEntries = keychainEntries.filter(k => k.type === 'passkey');
 
-    if (!passkeyEntry || !passkeyEntry.credentialId || !passkeyEntry.wrappedKey) {
-      throw new Error("No passkey found for this user.");
+    if (passkeyEntries.length === 0) {
+      throw new Error("No passkeys found for this user.");
     }
 
     // 2. Generate authentication challenge (client-side)
@@ -42,19 +42,23 @@ export async function unlockWithPasskey(userId: string): Promise<boolean> {
 
     const authenticationOptions = {
       challenge: challengeBase64,
-      allowCredentials: [
-        {
-          id: passkeyEntry.credentialId,
-          type: "public-key" as const,
-          transports: [] as AuthenticatorTransport[],
-        },
-      ],
+      allowCredentials: passkeyEntries.map(entry => ({
+        id: entry.credentialId,
+        type: "public-key" as const,
+        transports: [] as AuthenticatorTransport[],
+      })),
       userVerification: "preferred" as const,
       timeout: 60000,
     };
 
     // 3. Start authentication
     const authResp = await startAuthentication(authenticationOptions);
+
+    // Find the matching entry used for authentication
+    const usedEntry = passkeyEntries.find(e => e.credentialId === authResp.id);
+    if (!usedEntry) {
+      throw new Error("Could not find the passkey used for authentication.");
+    }
 
     // 4. Derive Kwrap from WebAuthn credential data (same as setup)
     const encoder = new TextEncoder();
@@ -69,7 +73,7 @@ export async function unlockWithPasskey(userId: string): Promise<boolean> {
     );
 
     // 5. Decrypt master key from wrappedKey
-    const passkeyBlob = base64ToArrayBuffer(passkeyEntry.wrappedKey);
+    const passkeyBlob = base64ToArrayBuffer(usedEntry.wrappedKey);
     const iv = passkeyBlob.slice(0, 12);
     const encryptedKey = passkeyBlob.slice(12);
     const rawMasterKey = await crypto.subtle.decrypt(
