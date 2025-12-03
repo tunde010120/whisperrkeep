@@ -131,6 +131,17 @@ export default function ImportPage() {
           );
         }
       }
+      
+      if (importType === "whisperrkeep") {
+         try {
+             const data = JSON.parse(text);
+             if (!data.version && (!data.credentials && !data.folders && !data.totpSecrets)) {
+                 throw new Error("Invalid WhisperrKeep export format.");
+             }
+         } catch {
+             throw new Error("Invalid JSON file.");
+         }
+      }
 
       return text;
     } catch (error) {
@@ -190,6 +201,13 @@ export default function ImportPage() {
           user.$id,
         );
         setResult(importResult);
+      } else if (importType === "whisperrkeep") {
+        importServiceRef.current = new ImportService(progressCallback);
+        const importResult = await importServiceRef.current.importWhisperrKeepData(
+          fileContent,
+          user.$id
+        );
+        setResult(importResult);
       } else {
         throw new Error(`Import type "${importType}" is not yet implemented.`);
       }
@@ -218,8 +236,9 @@ export default function ImportPage() {
   const isFileValid =
     file &&
     ((importType === "bitwarden" && file.name.endsWith(".json")) ||
+      (importType === "whisperrkeep" && file.name.endsWith(".json")) ||
       (importType === "json" && file.name.endsWith(".json")) ||
-      (!["bitwarden", "json"].includes(importType) &&
+      (!["bitwarden", "json", "whisperrkeep"].includes(importType) &&
         file.name.endsWith(".csv")));
 
   return (
@@ -246,6 +265,13 @@ export default function ImportPage() {
                     className="justify-start"
                   >
                     Bitwarden
+                  </Button>
+                  <Button
+                    variant={importType === "whisperrkeep" ? "default" : "outline"}
+                    onClick={() => setImportType("whisperrkeep")}
+                    className="justify-start"
+                  >
+                    WhisperrNote Backup
                   </Button>
                   <Button
                     variant={importType === "zoho" ? "default" : "outline"}
@@ -297,17 +323,31 @@ export default function ImportPage() {
                 </div>
               )}
 
+              {importType === "whisperrkeep" && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-800 mb-2">
+                    Restoring from WhisperrNote:
+                  </h3>
+                  <p className="text-sm text-blue-700">
+                    Upload a JSON file previously exported from WhisperrNote/WhisperrKeep.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium mb-3">
                   Select File
                   {importType === "bitwarden" && (
                     <span className="text-gray-500">(JSON format)</span>
                   )}
+                  {importType === "whisperrkeep" && (
+                     <span className="text-gray-500">(JSON format)</span>
+                  )}
                 </label>
                 <Input
                   type="file"
                   accept={
-                    importType === "bitwarden"
+                    (importType === "bitwarden" || importType === "whisperrkeep")
                       ? ".json"
                       : importType === "json"
                         ? ".json"

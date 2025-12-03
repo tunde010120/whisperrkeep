@@ -1117,19 +1117,37 @@ export class AppwriteService {
     );
   }
 
-  static async exportUserData(userId: string): Promise<{
-    credentials: Credentials[];
-    totpSecrets: TotpSecrets[];
-    folders: Folders[];
+  static async exportUserData(userId: string, options: {
+    credentials?: boolean;
+    totpSecrets?: boolean;
+    folders?: boolean;
+  } = { credentials: true, totpSecrets: true, folders: true }): Promise<{
+    credentials?: Credentials[];
+    totpSecrets?: TotpSecrets[];
+    folders?: Folders[];
+    version: string;
+    exportedAt: string;
   }> {
-    // Export should include all data, so we use listAllCredentials
-    const [credentials, totpSecrets, folders] = await Promise.all([
-      this.listAllCredentials(userId),
-      this.listTOTPSecrets(userId), // Assuming these lists are not too large
-      this.listFolders(userId), // Assuming these lists are not too large
-    ]);
+    const promises: Promise<any>[] = [];
+    
+    if (options.credentials) promises.push(this.listAllCredentials(userId));
+    else promises.push(Promise.resolve(undefined));
 
-    return { credentials, totpSecrets, folders };
+    if (options.totpSecrets) promises.push(this.listTOTPSecrets(userId));
+    else promises.push(Promise.resolve(undefined));
+
+    if (options.folders) promises.push(this.listFolders(userId));
+    else promises.push(Promise.resolve(undefined));
+
+    const [credentials, totpSecrets, folders] = await Promise.all(promises);
+
+    return { 
+      credentials, 
+      totpSecrets, 
+      folders,
+      version: "1.0",
+      exportedAt: new Date().toISOString()
+    };
   }
 }
 
@@ -1525,8 +1543,12 @@ export async function updateUserProfile(
 /**
  * Export all user data (credentials, totp, folders).
  */
-export async function exportAllUserData(userId: string) {
-  return await AppwriteService.exportUserData(userId);
+export async function exportAllUserData(userId: string, options?: {
+  credentials?: boolean;
+  totpSecrets?: boolean;
+  folders?: boolean;
+}) {
+  return await AppwriteService.exportUserData(userId, options);
 }
 
 /**

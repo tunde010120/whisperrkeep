@@ -24,6 +24,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'", // TODO: Remove unsafe-inline, use nonces
               "img-src 'self' data: https:",
               "font-src 'self' data:",
+              "object-src 'none'", // Disable object/embed/applet
               "connect-src 'self' https://*.appwrite.io https://*.appwrite.global",
               "frame-ancestors 'none'",
               "base-uri 'self'",
@@ -56,12 +57,25 @@ const nextConfig: NextConfig = {
               "interest-cohort=()",
               "payment=()",
               "usb=()",
+              "magnetometer=()",
+              "accelerometer=()",
+              "gyroscope=()",
             ].join(", "),
           },
           // Force HTTPS (HSTS) - only enable if using HTTPS
           {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
+          },
+          // Prevent DNS Prefetching
+          {
+            key: "X-DNS-Prefetch-Control",
+            value: "off",
+          },
+          // Restrict Adobe Flash and PDF (legacy)
+          {
+            key: "X-Permitted-Cross-Domain-Policies",
+            value: "none",
           },
           // XSS Protection (legacy, but doesn't hurt)
           {

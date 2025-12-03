@@ -77,6 +77,12 @@ export default function SettingsPage() {
   const [passkeyEnabled, setPasskeyEnabled] = useState(false);
   const [passkeySetupOpen, setPasskeySetupOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportOptions, setExportOptions] = useState({
+    credentials: true,
+    totpSecrets: true,
+    folders: true,
+  });
 
   // Passkey Management State
   interface PasskeyUIItem {
@@ -320,11 +326,11 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
-  const handleExportData = async (forDelete: boolean = false) => {
+  const handleExportData = async (forDelete: boolean = false, options?: { credentials: boolean; totpSecrets: boolean; folders: boolean }) => {
     const toastId = toast.loading("Exporting data...");
     try {
       if (!user?.$id) throw new Error("Not authenticated");
-      const data = await exportAllUserData(user.$id);
+      const data = await exportAllUserData(user.$id, options);
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: "application/json",
       });
@@ -342,6 +348,15 @@ export default function SettingsPage() {
       const err = e as { message?: string };
       toast.error(err.message || "Failed to export data.", { id: toastId });
     }
+  };
+
+  const onExportClick = () => {
+      setIsExportModalOpen(true);
+  };
+
+  const confirmExport = () => {
+      setIsExportModalOpen(false);
+      handleExportData(false, exportOptions);
   };
 
   const handleDeleteAccount = async () => {
@@ -742,10 +757,10 @@ export default function SettingsPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start gap-2"
-                  onClick={() => handleExportData()}
+                  onClick={onExportClick}
                 >
                   <Download className="h-4 w-4" />
-                  Export All Data
+                  Export Data
                 </Button>
                 <Button
                   variant="outline"
@@ -902,6 +917,59 @@ export default function SettingsPage() {
             }}
           />
         )}
+        {isExportModalOpen && (
+          <Dialog open={isExportModalOpen} onClose={() => setIsExportModalOpen(false)}>
+            <div className="p-6">
+              <h3 className="text-lg font-bold">Export Data</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Select the data you want to export. Your data will be exported as a JSON file.
+              </p>
+              
+              <div className="space-y-4 mt-4">
+                 <div className="flex items-center space-x-2">
+                    <input 
+                        type="checkbox" 
+                        id="exp-creds" 
+                        checked={exportOptions.credentials} 
+                        onChange={(e) => setExportOptions({...exportOptions, credentials: e.target.checked})}
+                        className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <label htmlFor="exp-creds" className="text-sm font-medium">Login Credentials</label>
+                 </div>
+                 <div className="flex items-center space-x-2">
+                    <input 
+                        type="checkbox" 
+                        id="exp-totp" 
+                        checked={exportOptions.totpSecrets} 
+                        onChange={(e) => setExportOptions({...exportOptions, totpSecrets: e.target.checked})}
+                        className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <label htmlFor="exp-totp" className="text-sm font-medium">TOTP Secrets</label>
+                 </div>
+                 <div className="flex items-center space-x-2">
+                    <input 
+                        type="checkbox" 
+                        id="exp-folders" 
+                        checked={exportOptions.folders} 
+                        onChange={(e) => setExportOptions({...exportOptions, folders: e.target.checked})}
+                        className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <label htmlFor="exp-folders" className="text-sm font-medium">Folders</label>
+                 </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsExportModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={confirmExport}>
+                  Export Selected
+                </Button>
+              </div>
+            </div>
+          </Dialog>
+        )}
+        
         {isDeleteAccountModalOpen && deleteStep === "initial" && (
           <Dialog open={isDeleteAccountModalOpen} onClose={resetDeleteFlow}>
             <div className="p-6">

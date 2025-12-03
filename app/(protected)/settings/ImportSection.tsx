@@ -29,7 +29,7 @@ function parseJSON(json: string) {
 
 export default function ImportSection() {
   const { user } = useAppwrite();
-  type ImportVendor = "bitwarden" | "zoho" | "proton" | "json";
+  type ImportVendor = "bitwarden" | "zoho" | "proton" | "json" | "whisperrkeep";
   const [importType, setImportType] = useState<ImportVendor>("bitwarden");
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -80,6 +80,17 @@ export default function ImportSection() {
         }
         return;
       }
+      
+      if (importType === "whisperrkeep") {
+         const service = new ImportService();
+         const result = await service.importWhisperrKeepData(text, user.$id);
+         if (!result.success && result.errors.length > 0) {
+            setError(result.errors.join("\n") || "Import failed.");
+         } else {
+            setSuccess(`Successfully restored ${result.summary.credentialsCreated} credentials, ${result.summary.totpSecretsCreated} secrets, and ${result.summary.foldersCreated} folders.`);
+         }
+         return;
+      }
 
       await AppwriteService.bulkCreateCredentials(
         credentials as unknown as Parameters<
@@ -98,12 +109,18 @@ export default function ImportSection() {
     <div className="space-y-4">
       <div>
         <label className="font-medium">Select Vendor</label>
-        <div className="flex gap-2 mt-2">
+        <div className="flex gap-2 mt-2 flex-wrap">
           <Button
             variant={importType === "bitwarden" ? "default" : "outline"}
             onClick={() => setImportType("bitwarden")}
           >
             Bitwarden
+          </Button>
+          <Button
+            variant={importType === "whisperrkeep" ? "default" : "outline"}
+            onClick={() => setImportType("whisperrkeep")}
+          >
+            WhisperrNote Backup
           </Button>
           <Button
             variant={importType === "zoho" ? "default" : "outline"}
@@ -145,7 +162,8 @@ export default function ImportSection() {
       <div className="mt-2 text-xs text-gray-500">
         <p>Supported formats:</p>
         <ul className="list-disc ml-6">
-          <li>Bitwarden: Tools &gt; Export Vault &gt; .csv</li>
+          <li>WhisperrNote: Restore from a previous export (.json)</li>
+          <li>Bitwarden: Tools &gt; Export Vault &gt; .json</li>
           <li>Zoho Vault: Export as .csv</li>
           <li>Proton Pass: Export as .csv</li>
           <li>JSON: Custom format (array of credentials)</li>

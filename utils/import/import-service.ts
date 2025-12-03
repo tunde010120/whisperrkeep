@@ -186,6 +186,219 @@ export class ImportService {
     }
   }
 
+  async importWhisperrKeepData(
+    jsonData: string,
+    userId: string
+  ): Promise<ImportResult> {
+    const result: ImportResult = {
+      success: false,
+      summary: {
+        foldersCreated: 0,
+        credentialsCreated: 0,
+        totpSecretsCreated: 0,
+        errors: 0,
+        skipped: 0,
+      },
+      errors: [],
+      folderMapping: new Map(),
+    };
+
+    try {
+      // Stage 1: Parse
+      this.updateProgress({
+        stage: "parsing",
+        currentStep: 1,
+        totalSteps: 4,
+        message: "Parsing WhisperrKeep data...",
+        itemsProcessed: 0,
+        itemsTotal: 0,
+        errors: [],
+      });
+
+      const parsedData = JSON.parse(jsonData);
+      
+      // Basic validation
+      if (!parsedData.version && (!parsedData.credentials && !parsedData.folders && !parsedData.totpSecrets)) {
+         throw new Error("Invalid WhisperrKeep export format");
+      }
+
+      const folders = parsedData.folders || [];
+      const credentials = parsedData.credentials || [];
+      const totpSecrets = parsedData.totpSecrets || [];
+
+      const totalItems = folders.length + credentials.length + totpSecrets.length;
+
+      // Stage 2: Import folders
+      this.updateProgress({
+        stage: "folders",
+        currentStep: 2,
+        totalSteps: 4,
+        message: "Restoring folders...",
+        itemsProcessed: 0,
+        itemsTotal: totalItems,
+        errors: [],
+      });
+
+      const folderIdMapping = new Map<string, string>();
+      
+      for (const folder of folders) {
+        try {
+            // Clean folder object for creation
+            const cleanFolder = {
+                name: folder.name,
+                // userId is handled by createFolder using current user
+            };
+            const created = await AppwriteService.createFolder({
+                ...cleanFolder,
+                userId
+            } as any);
+            
+            // Map old ID to new ID
+            if (folder.$id) {
+                folderIdMapping.set(folder.$id, created.$id);
+            }
+            result.summary.foldersCreated++;
+        } catch (e) {
+            console.error("Failed to restore folder", e);
+        }
+      }
+      result.folderMapping = folderIdMapping;
+
+      // Stage 3: Import credentials
+      this.updateProgress({
+        stage: "credentials",
+        currentStep: 3,
+        totalSteps: 4,
+        message: "Restoring credentials...",
+        itemsProcessed: result.summary.foldersCreated,
+        itemsTotal: totalItems,
+        errors: result.errors,
+      });
+
+      for (const cred of credentials) {
+        try {
+            // Map folder ID
+            let folderId = cred.folderId;
+            if (folderId && folderIdMapping.has(folderId)) {
+                folderId = folderIdMapping.get(folderId);
+            } else {
+                folderId = null; // Reset if folder not found/imported
+            }
+
+            const cleanCred = {
+                name: cred.name,
+                url: cred.url,
+                username: cred.username,
+                password: cred.password,
+                notes: cred.notes,
+                totpId: null, // Clear TOTP link initially
+                cardNumber: cred.cardNumber,
+                cardholderName: cred.cardholderName,
+                cardExpiry: cred.cardExpiry,
+                cardCVV: cred.cardCVV,
+                cardPIN: cred.cardPIN,
+                cardType: cred.cardType,
+                folderId: folderId,
+                tags: cred.tags,
+                customFields: cred.customFields,
+                faviconUrl: cred.faviconUrl,
+                isFavorite: cred.isFavorite,
+                userId // Force current user ID
+            };
+
+            await AppwriteService.createCredential(cleanCred as any);
+            result.summary.credentialsCreated++;
+            
+            this.updateProgress({
+                stage: "credentials",
+                currentStep: 3,
+                totalSteps: 4,
+                message: `Restoring credentials... (${result.summary.credentialsCreated}/${credentials.length})`,
+                itemsProcessed: result.summary.foldersCreated + result.summary.credentialsCreated,
+                itemsTotal: totalItems,
+                errors: result.errors,
+            });
+        } catch (e) {
+             result.summary.errors++;
+             result.errors.push(`Failed to restore credential ${cred.name}`);
+        }
+      }
+
+      // Stage 4: TOTP Secrets
+      this.updateProgress({
+        stage: "totp",
+        currentStep: 4,
+        totalSteps: 4,
+        message: "Restoring TOTP secrets...",
+        itemsProcessed: result.summary.foldersCreated + result.summary.credentialsCreated,
+        itemsTotal: totalItems,
+        errors: result.errors,
+      });
+
+      for (const totp of totpSecrets) {
+         try {
+             // Map folder ID
+            let folderId = totp.folderId;
+            if (folderId && folderIdMapping.has(folderId)) {
+                folderId = folderIdMapping.get(folderId);
+            } else {
+                folderId = null;
+            }
+
+            const cleanTotp = {
+                issuer: totp.issuer,
+                accountName: totp.accountName,
+                secretKey: totp.secretKey,
+                algorithm: totp.algorithm,
+                digits: totp.digits,
+                period: totp.period,
+                url: totp.url,
+                folderId: folderId,
+                tags: totp.tags,
+                isFavorite: totp.isFavorite,
+                userId
+            };
+
+            await AppwriteService.createTOTPSecret(cleanTotp as any);
+            result.summary.totpSecretsCreated++;
+         } catch (e) {
+             result.summary.errors++;
+             result.errors.push(`Failed to restore TOTP ${totp.issuer}`);
+         }
+      }
+
+      result.success = true;
+      
+      this.updateProgress({
+        stage: "completed",
+        currentStep: 4,
+        totalSteps: 4,
+        message: "Import completed successfully",
+        itemsProcessed: totalItems,
+        itemsTotal: totalItems,
+        errors: result.errors,
+      });
+
+      return result;
+
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      result.errors.push(errorMessage);
+
+      this.updateProgress({
+        stage: "error",
+        currentStep: 0,
+        totalSteps: 4,
+        message: `Import failed: ${errorMessage}`,
+        itemsProcessed: 0,
+        itemsTotal: 0,
+        errors: result.errors,
+      });
+
+      return result;
+    }
+  }
+
   private async importFolders(
     folders: Omit<Folders, "$id" | "$createdAt" | "$updatedAt">[],
     mappedData: MappedImportData,
