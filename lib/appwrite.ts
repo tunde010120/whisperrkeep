@@ -20,6 +20,7 @@ import { AuthenticatorType } from "appwrite";
 import {
   masterPassCrypto,
 } from "@/app/(protected)/masterpass/logic";
+import { sanitizeString } from "@/lib/validation";
 
 // --- Appwrite Client Setup ---
 function normalizeEndpoint(ep?: string): string {
@@ -342,7 +343,8 @@ export class AppwriteService {
   static async createCredential(
     data: Omit<Credentials, "$id" | "$createdAt" | "$updatedAt">,
   ): Promise<Credentials> {
-    const encryptedData = await this.encryptDocumentFields(data, "credentials");
+    const sanitizedData = this.sanitizeCredentialData(data);
+    const encryptedData = await this.encryptDocumentFields(sanitizedData, "credentials");
     const doc = await appwriteDatabases.createDocument(
       APPWRITE_DATABASE_ID,
       APPWRITE_COLLECTION_CREDENTIALS_ID,
@@ -358,7 +360,8 @@ export class AppwriteService {
   static async createTOTPSecret(
     data: Omit<TotpSecrets, "$id" | "$createdAt" | "$updatedAt">,
   ): Promise<TotpSecrets> {
-    const encryptedData = await this.encryptDocumentFields(data, "totpSecrets");
+    const sanitizedData = this.sanitizeTotpData(data);
+    const encryptedData = await this.encryptDocumentFields(sanitizedData, "totpSecrets");
     const doc = await appwriteDatabases.createDocument(
       APPWRITE_DATABASE_ID,
       APPWRITE_COLLECTION_TOTPSECRETS_ID,
@@ -374,11 +377,15 @@ export class AppwriteService {
   static async createFolder(
     data: Omit<Folders, "$id" | "$createdAt" | "$updatedAt">,
   ): Promise<Folders> {
+    const sanitizedData = {
+        ...data,
+        name: sanitizeString(data.name, 100),
+    };
     const doc = await appwriteDatabases.createDocument(
       APPWRITE_DATABASE_ID,
       APPWRITE_COLLECTION_FOLDERS_ID,
       ID.unique(),
-      data as unknown as Record<string, unknown>,
+      sanitizedData as unknown as Record<string, unknown>,
     );
     return this.mapDoc<Folders>(doc);
   }
@@ -802,7 +809,8 @@ export class AppwriteService {
     id: string,
     data: Partial<Credentials>,
   ): Promise<Credentials> {
-    const encryptedData = await this.encryptDocumentFields(data, "credentials");
+    const sanitizedData = this.sanitizeCredentialData(data);
+    const encryptedData = await this.encryptDocumentFields(sanitizedData, "credentials");
     const doc = await appwriteDatabases.updateDocument(
       APPWRITE_DATABASE_ID,
       APPWRITE_COLLECTION_CREDENTIALS_ID,
@@ -819,7 +827,8 @@ export class AppwriteService {
     id: string,
     data: Partial<TotpSecrets>,
   ): Promise<TotpSecrets> {
-    const encryptedData = await this.encryptDocumentFields(data, "totpSecrets");
+    const sanitizedData = this.sanitizeTotpData(data);
+    const encryptedData = await this.encryptDocumentFields(sanitizedData, "totpSecrets");
     const doc = await appwriteDatabases.updateDocument(
       APPWRITE_DATABASE_ID,
       APPWRITE_COLLECTION_TOTPSECRETS_ID,
@@ -836,11 +845,15 @@ export class AppwriteService {
     id: string,
     data: Partial<Folders>,
   ): Promise<Folders> {
+    const sanitizedData = { ...data };
+    if (sanitizedData.name) {
+        sanitizedData.name = sanitizeString(sanitizedData.name, 100);
+    }
     const doc = await appwriteDatabases.updateDocument(
       APPWRITE_DATABASE_ID,
       APPWRITE_COLLECTION_FOLDERS_ID,
       id,
-      data as unknown as Record<string, unknown>,
+      sanitizedData as unknown as Record<string, unknown>,
     );
     return doc as unknown as Folders;
   }
@@ -931,6 +944,33 @@ export class AppwriteService {
       $updatedAt: new Date().toISOString(),
       $permissions: [],
     });
+  }
+
+  // --- Sanitization Helpers ---
+  private static sanitizeCredentialData(data: Partial<Credentials>): Partial<Credentials> {
+    const sanitized = { ...data };
+    
+    // Sanitize string fields that might be displayed as HTML
+    if (sanitized.name) sanitized.name = sanitizeString(sanitized.name, 100);
+    if (sanitized.username) sanitized.username = sanitizeString(sanitized.username, 255);
+    // Note: We don't sanitize password as it needs to be exact
+    // Note: Urls can be tricky to sanitize without breaking them, validation is better.
+    // sanitizeString removes HTML tags which should be safe for URLs unless they are weird
+    if (sanitized.url) sanitized.url = sanitizeString(sanitized.url, 2048);
+    if (sanitized.notes) sanitized.notes = sanitizeString(sanitized.notes, 10000);
+    
+    // Custom fields are JSON strings, we trust the validation/parser there or sanitize individual string values if we parse it.
+    // For now, we leave customFields as is, assuming validation happened before.
+    
+    return sanitized;
+  }
+
+  private static sanitizeTotpData(data: Partial<TotpSecrets>): Partial<TotpSecrets> {
+    const sanitized = { ...data };
+    if (sanitized.issuer) sanitized.issuer = sanitizeString(sanitized.issuer, 100);
+    if (sanitized.accountName) sanitized.accountName = sanitizeString(sanitized.accountName, 100);
+    if (sanitized.url) sanitized.url = sanitizeString(sanitized.url, 2048);
+    return sanitized;
   }
 
   // --- Encryption/Decryption Helpers ---
@@ -1056,7 +1096,7 @@ export class AppwriteService {
     userId: string,
     searchTerm: string,
   ): Promise<Credentials[]> {
-    // Search must operate on all credentials, so we use listAllCredentials
+    // Search must operate on all credentials since name is encrypted
     const allCredentials = await this.listAllCredentials(userId);
     const term = searchTerm.toLowerCase();
 
@@ -1590,29 +1630,15 @@ export async function resetMasterpassAndWipe(userId: string): Promise<void> {
 }
 
 /**
- * Search credentials for a user with enhanced database-level filtering
+ * Search credentials for a user (Client-side only for encrypted data)
  */
 export async function searchCredentials(
   userId: string,
   searchTerm: string,
 ): Promise<Credentials[]> {
-  try {
-    // Try database-level search first for better performance
-    const result = await AppwriteService.searchCredentialsByName(
-      userId,
-      searchTerm,
-      100,
-      0,
-    );
-    return result.documents;
-  } catch (error) {
-    // Fallback to client-side search if database search fails
-    console.warn(
-      "Database search failed, falling back to client-side search:",
-      error,
-    );
+    // Since 'name' and other fields are encrypted, server-side search won't work effectively.
+    // We strictly use client-side search on decrypted data.
     return await AppwriteService.searchCredentials(userId, searchTerm);
-  }
 }
 
 /**

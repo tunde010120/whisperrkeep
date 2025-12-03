@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // TODO: Remove unsafe-inline and unsafe-eval, use nonces
+              "script-src 'self' 'unsafe-inline'", // Removed unsafe-eval
               "style-src 'self' 'unsafe-inline'", // TODO: Remove unsafe-inline, use nonces
               "img-src 'self' data: https:",
               "font-src 'self' data:",

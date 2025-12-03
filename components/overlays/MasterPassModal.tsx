@@ -16,6 +16,7 @@ import {
   logoutAppwrite,
   AppwriteService,
 } from "@/lib/appwrite";
+import { checkRateLimit, getBlockedDuration } from "@/lib/rate-limiter";
 import toast from "react-hot-toast";
 import { unlockWithPasskey } from "@/app/(protected)/settings/passkey";
 
@@ -66,6 +67,16 @@ export function MasterPassModal({ isOpen, onClose }: MasterPassModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    if (user) {
+      const rateLimitKey = `unlock_${user.$id}`;
+      if (!checkRateLimit(rateLimitKey)) {
+        const remainingTime = getBlockedDuration(rateLimitKey);
+        toast.error(`Too many attempts. Please try again in ${remainingTime} seconds.`);
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
       if (isFirstTime) {
