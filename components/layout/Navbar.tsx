@@ -22,11 +22,11 @@ export function Navbar() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/images/logo.png"
-            alt="Whisperrauth Logo"
+            alt="Whisperrkeep Logo"
             className="h-8 w-8 rounded-lg object-contain"
           />
           <span className="font-semibold text-lg hidden sm:inline">
-            Whisperrauth
+            Whisperrkeep
           </span>
         </Link>
         <div className="flex items-center gap-2">

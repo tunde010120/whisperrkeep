@@ -1,8 +1,8 @@
-l# 🔐 Whisperrauth
+# 🔐 Whisperrkeep
 
-Welcome to **Whisperrauth** – your next-generation, AI powered zero-knowledge password, 2fa factor, wallet keys manager built with security, privacy, and usability at its core! 🚀
+ Welcome to **Whisperrkeep** – your next-generation, AI powered, zero-knowledge password, 2fa factor, and wallet keys manager built with security, privacy, and usability at its core! 🚀
 
-Whisperrauth tackles the privacy gaps that plague modern Web3 tooling: forgotten wallet phrases, scattered credentials, secret keys, and 2FA tokens across chains and devices, all while requiring constant trust in third parties. We solve this by encrypting every secret locally, keeping the cloud zero-knowledge, and pairing the experience with AI intelligence that helps users organize and automate their recovery options without exposing data. This lets builders stay compliant in privacy-focused hackathons and keep sensitive keys safe while still interacting with AI-powered tooling.
+ Whisperrkeep solves the privacy challenges of Web3 by keeping wallet phrases, credentials, secret keys, and 2FA material encrypted locally, while offering AI-powered tools to organize them and automate recovery flows. It prevents over-reliance on third parties, maintains zero-knowledge guarantees, and keeps builders and users compliant in privacy- and zero-knowledge-focused environments without sacrificing workflow efficiency.
 
 ---
 

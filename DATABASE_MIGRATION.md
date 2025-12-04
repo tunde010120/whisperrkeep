@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the comprehensive security and feature upgrades to the Appwrite backend schema for the Whisperrauth password manager application.
+This document describes the comprehensive security and feature upgrades to the Appwrite backend schema for the Whisperrkeep password manager application.
 
 ## Key Changes Summary
 

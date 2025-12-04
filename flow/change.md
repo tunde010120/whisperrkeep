@@ -1,6 +1,6 @@
 # Master Password Change – Implementation Plan and Milestones
 
-This document tracks the end‑to‑end plan for safely implementing master password rotation (change) in Whisperrauth with zero data loss and zero downtime. It is designed to be executed incrementally with strong guarantees: no plaintext exposure, no irreversible states, and fully atomic recovery paths.
+This document tracks the end‑to‑end plan for safely implementing master password rotation (change) in Whisperrkeep with zero data loss and zero downtime. It is designed to be executed incrementally with strong guarantees: no plaintext exposure, no irreversible states, and fully atomic recovery paths.
 
 ## Current Model (as‑is)
 

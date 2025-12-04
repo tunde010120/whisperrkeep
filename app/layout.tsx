@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Whisperrauth",
+  title: "Whisperrkeep",
   description: "Secure password management application",
 };
 

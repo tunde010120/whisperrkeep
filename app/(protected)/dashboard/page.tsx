@@ -229,7 +229,7 @@ export default function DashboardPage() {
         <div className="hidden md:block">
           <div className="h-20 px-8 flex items-center bg-card rounded-b-3xl shadow-md">
             <span className="font-bold text-[32px] tracking-wider text-[rgb(141,103,72)] dark:text-primary drop-shadow-md mr-8">
-              WhisperrAuth
+              Whisperrkeep
             </span>
             <div className="flex-1 bg-card rounded-full">
               <SearchBar onSearch={handleSearch} />
@@ -241,7 +241,7 @@ export default function DashboardPage() {
         <div className="md:hidden">
           <div className="h-[70px] flex items-center justify-between bg-card shadow-md relative px-4">
             <span className="font-bold text-[26px] tracking-wider text-[rgb(141,103,72)] dark:text-primary drop-shadow-md">
-              WhisperrAuth
+              Whisperrkeep
             </span>
             <div className="absolute left-0 right-0 bottom-0 px-2 pb-2 bg-card rounded-full">
               <SearchBar onSearch={handleSearch} />

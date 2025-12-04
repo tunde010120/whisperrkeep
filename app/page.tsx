@@ -96,7 +96,7 @@ export default function LandingPage() {
   const testimonials = [
     {
       quote:
-        "Whisperrauth app has completely transformed how I manage my online security. I finally feel safe online.",
+          "Whisperrkeep app has completely transformed how I manage my online security. I finally feel safe online.",
       name: "Sarah Johnson",
       role: "Software Developer",
       stars: 5,
@@ -110,7 +110,7 @@ export default function LandingPage() {
     },
     {
       quote:
-        "I was hesitant to use a password manager, but Whisperrauth made it so easy. Now I can't imagine life without it.",
+        "I was hesitant to use a password manager, but Whisperrkeep made it so easy. Now I can't imagine life without it.",
       name: "Elena Rodriguez",
       role: "Digital Marketer",
       stars: 5,
@@ -119,24 +119,24 @@ export default function LandingPage() {
 
   const faqs = [
     {
-      question: "Is Whisperrauth really secure?",
+      question: "Is Whisperrkeep really secure?",
       answer:
-        "Yes, Whisperrauth uses zero-knowledge encryption, meaning your data is encrypted before it leaves your device. We never have access to your master password or any of your stored credentials.",
+        "Yes, Whisperrkeep uses zero-knowledge encryption, meaning your data is encrypted before it leaves your device. We never have access to your master password or any of your stored credentials.",
     },
     {
       question: "What happens if I forget my master password?",
       answer:
-        "For security reasons, we cannot recover your master password. However, Whisperrauth offers emergency recovery options that you can set up in advance.",
+        "For security reasons, we cannot recover your master password. However, Whisperrkeep offers emergency recovery options that you can set up in advance.",
     },
     {
-      question: "Can I use Whisperrauth on all my devices?",
+      question: "Can I use Whisperrkeep on all my devices?",
       answer:
-        "Yes, Whisperrauth is available on Windows, macOS, Linux, iOS, and Android. Your data syncs automatically across all your devices.",
+        "Yes, Whisperrkeep is available on Windows, macOS, Linux, iOS, and Android. Your data syncs automatically across all your devices.",
     },
     {
-      question: "Is Whisperrauth free to use?",
+      question: "Is Whisperrkeep free to use?",
       answer:
-        "Whisperrauth offers a free tier with essential features. Premium plans with advanced features start at $2.99/month.",
+        "Whisperrkeep offers a free tier with essential features. Premium plans with advanced features start at $2.99/month.",
     },
   ];
 
@@ -192,7 +192,7 @@ export default function LandingPage() {
                   PM
                 </span>
               </div>
-              <h2 className="font-semibold text-lg">Whisperrauth</h2>
+              <h2 className="font-semibold text-lg">Whisperrkeep</h2>
             </div>
             <div className="flex items-center gap-2">
               <button className="p-2 rounded-full hover:bg-accent">
@@ -420,7 +420,7 @@ export default function LandingPage() {
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold mb-4">Trusted by Thousands</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            See what our users have to say about Whisperrauth.
+            See what our users have to say about Whisperrkeep.
           </p>
         </div>
 
@@ -455,7 +455,7 @@ export default function LandingPage() {
               Frequently Asked Questions
             </h2>
             <p className="text-muted-foreground">
-              Everything you need to know about Whisperrauth
+              Everything you need to know about Whisperrkeep
             </p>
           </div>
 
@@ -477,7 +477,7 @@ export default function LandingPage() {
             Ready to secure your digital life?
           </h2>
           <p className="text-xl text-muted-foreground mb-8">
-            Join thousands of users who trust Whisperrauth with their passwords.
+            Join thousands of users who trust Whisperrkeep with their passwords.
           </p>
           <Button 
             size="lg" 

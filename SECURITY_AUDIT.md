@@ -1,4 +1,4 @@
-# Security Audit Report - Whisperrauth Password Manager
+# Security Audit Report - Whisperrkeep Password Manager
 **Date:** 2025-10-15  
 **Severity Levels:** 🔴 Critical | 🟠 High | 🟡 Medium | 🟢 Low
 

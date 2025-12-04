@@ -44,11 +44,11 @@ export function Header({ onMenuClick }: HeaderProps) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/logo.png"
-              alt="Whisperrauth Logo"
+              alt="Whisperrkeep Logo"
               className="h-8 w-8 rounded-lg object-contain"
             />
             <h1 className="font-semibold text-lg hidden sm:block">
-              Whisperrauth
+              Whisperrkeep
             </h1>
           </div>
         </div>
