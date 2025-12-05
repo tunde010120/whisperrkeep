@@ -321,8 +321,11 @@ export class ImportService {
                 errors: result.errors,
             });
         } catch (e) {
+             const error = e as Error;
              result.summary.errors++;
-             result.errors.push(`Failed to restore credential ${cred.name}`);
+             const errorMsg = `Failed to restore credential ${cred.name}: ${error.message}`;
+             result.errors.push(errorMsg);
+             console.error(`Import Error [Credential]: ${errorMsg}`, e);
         }
       }
 
