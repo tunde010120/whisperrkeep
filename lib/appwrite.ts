@@ -342,6 +342,12 @@ export class AppwriteService {
   ): Promise<Credentials> {
     const sanitizedData = this.sanitizeCredentialData(data);
     const encryptedData = await this.encryptDocumentFields(sanitizedData, "credentials");
+    
+    // Ensure itemType is present, default to 'login'
+    if (!encryptedData.itemType) {
+        encryptedData.itemType = "login";
+    }
+
     const doc = await appwriteDatabases.createDocument(
       APPWRITE_DATABASE_ID,
       APPWRITE_COLLECTION_CREDENTIALS_ID,
