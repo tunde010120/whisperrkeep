@@ -7,6 +7,8 @@ import {
   AuthenticationFactor,
   Avatars,
   Models,
+  Permission,
+  Role,
 } from "appwrite";
 import type {
   Credentials,
@@ -353,6 +355,11 @@ export class AppwriteService {
       APPWRITE_COLLECTION_CREDENTIALS_ID,
       ID.unique(),
       encryptedData,
+      [
+        Permission.read(Role.user(data.userId)),
+        Permission.update(Role.user(data.userId)),
+        Permission.delete(Role.user(data.userId)),
+      ]
     );
     return (await this.decryptDocumentFields(
       doc,
@@ -370,6 +377,11 @@ export class AppwriteService {
       APPWRITE_COLLECTION_TOTPSECRETS_ID,
       ID.unique(),
       encryptedData,
+      [
+        Permission.read(Role.user(data.userId)),
+        Permission.update(Role.user(data.userId)),
+        Permission.delete(Role.user(data.userId)),
+      ]
     );
     return (await this.decryptDocumentFields(
       doc,
@@ -389,6 +401,11 @@ export class AppwriteService {
       APPWRITE_COLLECTION_FOLDERS_ID,
       ID.unique(),
       sanitizedData as unknown as Record<string, unknown>,
+      [
+        Permission.read(Role.user(data.userId)),
+        Permission.update(Role.user(data.userId)),
+        Permission.delete(Role.user(data.userId)),
+      ]
     );
     return this.mapDoc<Folders>(doc);
   }
@@ -401,6 +418,12 @@ export class AppwriteService {
       APPWRITE_COLLECTION_SECURITYLOGS_ID,
       ID.unique(),
       data,
+      [
+        Permission.read(Role.user(data.userId)),
+        // Logs are usually read-only for the user, but for now we give full access
+        Permission.update(Role.user(data.userId)),
+        Permission.delete(Role.user(data.userId)),
+      ]
     );
     return doc as SecurityLogs;
   }
@@ -413,6 +436,11 @@ export class AppwriteService {
       APPWRITE_COLLECTION_KEYCHAIN_ID,
       ID.unique(),
       data,
+      [
+        Permission.read(Role.user(data.userId)),
+        Permission.update(Role.user(data.userId)),
+        Permission.delete(Role.user(data.userId)),
+      ]
     );
     return doc as unknown as Keychain;
   }
@@ -455,6 +483,11 @@ export class AppwriteService {
       APPWRITE_COLLECTION_USER_ID,
       ID.unique(),
       data,
+      [
+        Permission.read(Role.user(data.userId)),
+        Permission.update(Role.user(data.userId)),
+        Permission.delete(Role.user(data.userId)),
+      ]
     );
     return doc as User;
   }
