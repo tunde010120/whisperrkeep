@@ -30,7 +30,7 @@ export function Navbar() {
   ].some(path => pathname?.startsWith(path));
 
   return (
-    <nav className="border-b border-border fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <nav className="border-b border-border fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 animate-fadeIn">
       <div className="max-w-screen-xl mx-auto flex justify-between items-center h-16 px-4 relative">
         <Link href="/" className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -90,8 +90,8 @@ export function Navbar() {
             </div>
           </DropdownMenu>
           {!user ? (
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant="outline"
               onClick={() => {
                 try {

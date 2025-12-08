@@ -155,7 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex w-full overflow-x-hidden pt-16">
         <aside
           className={clsx(
-            "hidden lg:block",
+            "hidden lg:block animate-fadeIn",
             "fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-card border-r overflow-y-auto z-30",
           )}
           aria-label="Primary sidebar navigation"
@@ -230,19 +230,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden lg:ml-64">
-          <main className="flex-1 px-2 py-4 sm:px-3 md:px-4 lg:px-4 pb-20 lg:pb-6 overflow-x-hidden max-w-full">
+          <main className="flex-1 px-2 py-4 sm:px-3 md:px-4 lg:px-4 pb-20 lg:pb-6 overflow-x-hidden max-w-full animate-fadeIn">
             {children}
           </main>
         </div>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t border-border flex lg:hidden justify-around items-center h-16 pb-[env(safe-area-inset-bottom)] box-content shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t border-border flex lg:hidden justify-around items-center h-16 pb-[env(safe-area-inset-bottom)] box-content shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] animate-fadeIn">
         {navigation
           .filter((item) => item.name !== "Import")
           .map((item) => {
             const isActive = pathname === item.href;
             const isBig = item.big;
-            
+
             if (isBig) {
               return (
                 <Link
