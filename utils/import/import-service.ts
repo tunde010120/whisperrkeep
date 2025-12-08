@@ -272,8 +272,55 @@ export class ImportService {
       }
 
       const folders = parsedData.folders || [];
-      const credentials = parsedData.credentials || [];
+      let credentials = parsedData.credentials || [];
       const totpSecrets = parsedData.totpSecrets || [];
+
+      // Check against existing credentials
+      try {
+        this.updateProgress({
+            stage: "parsing",
+            currentStep: 1,
+            totalSteps: 4,
+            message: "Checking for existing credentials...",
+            itemsProcessed: 0,
+            itemsTotal: 0,
+            errors: [],
+        });
+
+        const existingCreds = await AppwriteService.listAllCredentials(userId);
+        const uniqueCredentials = [];
+        let skippedExisting = 0;
+
+        for (const cred of credentials) {
+            const credUrl = cred.url ? String(cred.url).trim().toLowerCase() : "";
+            const credUser = cred.username ? String(cred.username).trim() : "";
+            const credPass = cred.password ? String(cred.password).trim() : "";
+
+            const isDuplicate = existingCreds.some(existing => {
+                const existUrl = existing.url ? existing.url.trim().toLowerCase() : "";
+                const existUser = existing.username ? existing.username.trim() : "";
+                const existPass = existing.password ? existing.password.trim() : "";
+                
+                return existUser === credUser && existPass === credPass && existUrl === credUrl;
+            });
+            
+            if (isDuplicate) {
+                skippedExisting++;
+            } else {
+                uniqueCredentials.push(cred);
+            }
+        }
+        
+        credentials = uniqueCredentials;
+        result.summary.skippedExisting = skippedExisting;
+        
+        if (skippedExisting > 0) {
+             console.log(`[ImportService] Skipped ${skippedExisting} existing credentials.`);
+        }
+      } catch (e) {
+        console.warn("[ImportService] Failed to check existing credentials, proceeding with import.", e);
+      }
+
 
       console.log("[ImportService] Parsed WhisperrKeep data:", {
         foldersCount: folders.length,
