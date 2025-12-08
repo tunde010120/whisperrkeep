@@ -39,6 +39,8 @@ export default function TOTPPage() {
   const [isVerificationOpen, setIsVerificationOpen] = useState(false);
   const [totpToDelete, setTotpToDelete] = useState<string | null>(null);
 
+  // Fix infinite loop by removing unstable function reference from dependencies
+  // usage of isVaultUnlocked inside effect is sufficient
   useEffect(() => {
     if (!user?.$id) return;
 
@@ -48,18 +50,69 @@ export default function TOTPPage() {
     }
 
     setLoading(true);
-    Promise.all([listTotpSecrets(user.$id), listFolders(user.$id)])
-      .then(([secrets, userFolders]) => {
-        setTotpCodes(secrets);
-        const folderMap = new Map<string, string>();
-        userFolders.forEach((f) => folderMap.set(f.$id, f.name));
-        setFolders(folderMap);
+    // Use Promise.allSettled to avoid failing completely if one request fails
+    Promise.allSettled([listTotpSecrets(user.$id), listFolders(user.$id)])
+      .then(([secretsResult, foldersResult]) => {
+        if (secretsResult.status === "fulfilled") {
+          setTotpCodes(secretsResult.value);
+        } else {
+          console.error("Failed to fetch TOTP secrets", secretsResult.reason);
+        }
+
+        if (foldersResult.status === "fulfilled") {
+          const folderMap = new Map<string, string>();
+          foldersResult.value.forEach((f) => folderMap.set(f.$id, f.name));
+          setFolders(folderMap);
+        }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Error loading TOTP data:", err);
         toast.error("Failed to load data.");
       })
       .finally(() => setLoading(false));
-  }, [user, showNew, isVaultUnlocked]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, showNew]); // Removed isVaultUnlocked
+
+  const generateTOTP = (
+    secret: string,
+    period: number = 30,
+    digits: number = 6,
+    algorithm: string = "SHA1",
+  ): string => {
+    try {
+      // Handle failed decryption or missing secret
+      if (!secret || secret.includes("[DECRYPTION_FAILED]")) return "Locked";
+
+      // Sanitize: remove all spaces to ensure spaced/unspaced secrets yield same code
+      const normalized = (secret || "").replace(/\s+/g, "").toUpperCase();
+
+      if (!normalized) return "------";
+
+      // Otplib expects strictly uppercase base32 secret usually, but let's just pass normalized
+      // Algorithm must be lowercase for some versions of otplib / crypto wrappers
+      const algo = (algorithm || "sha1").toLowerCase();
+
+      authenticator.options = {
+        step: period || 30,
+        digits: digits || 6,
+        // @ts-expect-error - types can be strict
+        algorithm: algo,
+        window: 0
+      };
+
+      return authenticator.generate(normalized);
+    } catch (err) {
+      console.warn("TOTP Generation warning for secret ending in ...", secret?.slice(-4), err);
+      // Fallback: try default algorithm if specific one failed
+      if (algorithm?.toLowerCase() !== 'sha1') {
+        try {
+          authenticator.options = { step: 30, digits: 6, algorithm: 'sha1' };
+          return authenticator.generate((secret || "").replace(/\s+/g, ""));
+        } catch { }
+      }
+      return "Invalid";
+    }
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -87,35 +140,6 @@ export default function TOTPPage() {
     setIsVerificationOpen(true);
   };
 
-  const generateTOTP = (
-    secret: string,
-    period: number = 30,
-    digits: number = 6,
-    algorithm: string = "SHA1",
-  ): string => {
-    try {
-      // Handle failed decryption or missing secret
-      if (!secret || secret.includes("[DECRYPTION_FAILED]")) return "Locked";
-
-      // Sanitize: remove all spaces to ensure spaced/unspaced secrets yield same code
-      const normalized = (secret || "").replace(/\s+/g, "");
-      if (!normalized) return "------";
-
-      authenticator.options = {
-        ...authenticator.options,
-        step: period || 30,
-        digits: digits || 6,
-        // @ts-expect-error - algorithm type mismatch in some versions
-        algorithm: algorithm || "SHA1",
-      };
-
-      return authenticator.generate(normalized);
-    } catch (err) {
-      console.error("TOTP Generation Error:", err);
-      return "Invalid";
-    }
-  };
-
   const getTimeRemaining = (period: number = 30): number => {
     return period - (Math.floor(currentTime / 1000) % period);
   };
@@ -139,7 +163,12 @@ export default function TOTPPage() {
       secretStart: totp.secretKey?.substring(0, 5)
     });
 
-    const code = generateTOTP(totp.secretKey, totp.period || 30);
+    const code = generateTOTP(
+      totp.secretKey,
+      totp.period || 30,
+      totp.digits || 6,
+      totp.algorithm || "SHA1"
+    );
     console.log("[TOTPCard] generated code", code);
 
     const timeRemaining = getTimeRemaining(totp.period || 30);
