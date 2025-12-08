@@ -10,12 +10,24 @@ import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import PasswordGenerator from "@/components/ui/PasswordGenerator";
 import { openAuthPopup } from "@/lib/authUrl";
 import { useAI } from "@/app/context/AIContext";
+import { usePathname } from "next/navigation";
 
 export function Navbar() {
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAppwrite();
   const { openAIModal } = useAI();
   const [showMenu, setShowMenu] = useState(false);
+  const pathname = usePathname();
+
+  const isCorePage = [
+    "/dashboard",
+    "/credentials",
+    "/totp",
+    "/settings",
+    "/import",
+    "/sharing",
+    "/overview"
+  ].some(path => pathname?.startsWith(path));
 
   return (
     <nav className="border-b border-border fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -32,8 +44,8 @@ export function Navbar() {
           </span>
         </Link>
         <div className="flex items-center gap-2">
-          {/* AI Wand Button - Only visible for authenticated users */}
-          {user && (
+          {/* AI Wand Button - Only visible for authenticated users AND core pages */}
+          {user && isCorePage && (
             <Button
               variant="ghost"
               size="sm"
