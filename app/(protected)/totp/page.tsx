@@ -106,6 +106,7 @@ export default function TOTPPage() {
       // Fallback: try default algorithm if specific one failed
       if (algorithm?.toLowerCase() !== 'sha1') {
         try {
+          // @ts-expect-error - type mismatch
           authenticator.options = { step: 30, digits: 6, algorithm: 'sha1' };
           return authenticator.generate((secret || "").replace(/\s+/g, ""));
         } catch { }
