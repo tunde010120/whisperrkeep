@@ -130,7 +130,18 @@ export default function TOTPPage() {
   };
 
   const TOTPCard = ({ totp }: { totp: TotpItem }) => {
+    // Debug logging
+    console.log("[TOTPCard] rendering", {
+      id: totp.$id,
+      issuer: totp.issuer,
+      hasSecret: !!totp.secretKey,
+      secretKeyLength: totp.secretKey?.length,
+      secretStart: totp.secretKey?.substring(0, 5)
+    });
+
     const code = generateTOTP(totp.secretKey, totp.period || 30);
+    console.log("[TOTPCard] generated code", code);
+
     const timeRemaining = getTimeRemaining(totp.period || 30);
     const progress = (timeRemaining / (totp.period || 30)) * 100;
     const folderName = totp.folderId ? folders.get(totp.folderId) : null;
@@ -156,6 +167,10 @@ export default function TOTPPage() {
                 {folderName}
               </span>
             )}
+            {/* DEBUG DISPLAY */}
+            {/* <div className="text-[10px] text-red-500 break-all">
+               DEBUG: {JSON.stringify(totp.secretKey)}
+            </div> */}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <Button
