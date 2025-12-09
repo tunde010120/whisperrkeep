@@ -94,32 +94,52 @@ export class ImportService {
         mappedData.credentials.length +
         mappedData.totpSecrets.length;
 
-      // Check against existing credentials
+      // Check against existing data (Credentials, Folders, TOTP)
       this.updateProgress({
         stage: "parsing",
         currentStep: 1,
         totalSteps: 4,
-        message: "Checking for existing credentials...",
+        message: "Checking for existing data...",
         itemsProcessed: 0,
         itemsTotal: totalItems,
         errors: [],
       });
 
+      const existingFoldersMap = new Map<string, string>(); // Name -> ID
+      const existingTotpMap = new Set<string>(); // SecretKey
+
       try {
-        const existingCreds = await AppwriteService.listAllCredentials(userId);
+        const [existingCreds, existingFolders, existingTotps] = await Promise.all([
+            AppwriteService.listAllCredentials(userId),
+            AppwriteService.listFolders(userId),
+            AppwriteService.listTOTPSecrets(userId)
+        ]);
+
+        // Index existing folders
+        existingFolders.forEach(f => {
+            if (f.name) existingFoldersMap.set(f.name.trim(), f.$id);
+        });
+
+        // Index existing TOTP secrets
+        existingTotps.forEach(t => {
+            if (t.secretKey) existingTotpMap.add(t.secretKey.trim());
+        });
+
+        // Deduplicate Credentials
         const uniqueCredentials = [];
         let skippedExisting = 0;
 
         for (const cred of mappedData.credentials) {
-            const credUrl = cred.url ? cred.url.trim().toLowerCase() : "";
+            const credUrl = this.normalizeUrl(cred.url);
             const credUser = cred.username ? cred.username.trim() : "";
             const credPass = cred.password ? cred.password.trim() : "";
 
             const isDuplicate = existingCreds.some(existing => {
-                const existUrl = existing.url ? existing.url.trim().toLowerCase() : "";
+                const existUrl = this.normalizeUrl(existing.url);
                 const existUser = existing.username ? existing.username.trim() : "";
                 const existPass = existing.password ? existing.password.trim() : "";
                 
+                // Match if Username AND Password match AND (URL matches OR both URLs are empty)
                 return existUser === credUser && existPass === credPass && existUrl === credUrl;
             });
             
@@ -133,11 +153,22 @@ export class ImportService {
         mappedData.credentials = uniqueCredentials;
         result.summary.skippedExisting = skippedExisting;
         
+        // Deduplicate TOTP Secrets
+        const uniqueTotps = [];
+        for (const totp of mappedData.totpSecrets) {
+            if (totp.secretKey && existingTotpMap.has(totp.secretKey.trim())) {
+                result.summary.skippedExisting++;
+            } else {
+                uniqueTotps.push(totp);
+            }
+        }
+        mappedData.totpSecrets = uniqueTotps;
+
         if (skippedExisting > 0) {
              console.log(`[ImportService] Skipped ${skippedExisting} existing credentials.`);
         }
       } catch (e) {
-        console.warn("[ImportService] Failed to check existing credentials, proceeding with import.", e);
+        console.warn("[ImportService] Failed to check existing data, proceeding with import.", e);
       }
 
       // Stage 2: Import folders
@@ -154,6 +185,7 @@ export class ImportService {
       const folderIdMapping = await this.importFolders(
         mappedData.folders,
         mappedData,
+        existingFoldersMap
       );
       result.folderMapping = folderIdMapping;
       result.summary.foldersCreated = folderIdMapping.size;
@@ -275,29 +307,50 @@ export class ImportService {
       let credentials = parsedData.credentials || [];
       const totpSecrets = parsedData.totpSecrets || [];
 
-      // Check against existing credentials
+      // Check against existing data
+      this.updateProgress({
+        stage: "parsing",
+        currentStep: 1,
+        totalSteps: 4,
+        message: "Checking for existing data...",
+        itemsProcessed: 0,
+        itemsTotal: 0,
+        errors: [],
+      });
+
+      const existingFoldersMap = new Map<string, string>(); // Name -> ID
+      const existingTotpMap = new Set<string>(); // SecretKey
+      let credentials = parsedData.credentials || [];
+      let totpSecrets = parsedData.totpSecrets || [];
+
       try {
-        this.updateProgress({
-            stage: "parsing",
-            currentStep: 1,
-            totalSteps: 4,
-            message: "Checking for existing credentials...",
-            itemsProcessed: 0,
-            itemsTotal: 0,
-            errors: [],
+        const [existingCreds, existingFolders, existingTotps] = await Promise.all([
+            AppwriteService.listAllCredentials(userId),
+            AppwriteService.listFolders(userId),
+            AppwriteService.listTOTPSecrets(userId)
+        ]);
+
+        // Index existing folders
+        existingFolders.forEach(f => {
+            if (f.name) existingFoldersMap.set(f.name.trim(), f.$id);
         });
 
-        const existingCreds = await AppwriteService.listAllCredentials(userId);
+        // Index existing TOTP secrets
+        existingTotps.forEach(t => {
+            if (t.secretKey) existingTotpMap.add(t.secretKey.trim());
+        });
+
+        // Deduplicate Credentials
         const uniqueCredentials = [];
         let skippedExisting = 0;
 
         for (const cred of credentials) {
-            const credUrl = cred.url ? String(cred.url).trim().toLowerCase() : "";
+            const credUrl = this.normalizeUrl(cred.url);
             const credUser = cred.username ? String(cred.username).trim() : "";
             const credPass = cred.password ? String(cred.password).trim() : "";
 
             const isDuplicate = existingCreds.some(existing => {
-                const existUrl = existing.url ? existing.url.trim().toLowerCase() : "";
+                const existUrl = this.normalizeUrl(existing.url);
                 const existUser = existing.username ? existing.username.trim() : "";
                 const existPass = existing.password ? existing.password.trim() : "";
                 
@@ -314,11 +367,22 @@ export class ImportService {
         credentials = uniqueCredentials;
         result.summary.skippedExisting = skippedExisting;
         
+        // Deduplicate TOTP Secrets
+        const uniqueTotps = [];
+        for (const totp of totpSecrets) {
+            if (totp.secretKey && existingTotpMap.has(totp.secretKey.trim())) {
+                result.summary.skippedExisting++;
+            } else {
+                uniqueTotps.push(totp);
+            }
+        }
+        totpSecrets = uniqueTotps;
+
         if (skippedExisting > 0) {
              console.log(`[ImportService] Skipped ${skippedExisting} existing credentials.`);
         }
       } catch (e) {
-        console.warn("[ImportService] Failed to check existing credentials, proceeding with import.", e);
+        console.warn("[ImportService] Failed to check existing data, proceeding with import.", e);
       }
 
 
@@ -347,21 +411,30 @@ export class ImportService {
       for (const folder of folders) {
         await this.throttle();
         try {
-          // Clean folder object for creation
-          const cleanFolder = {
-            name: folder.name,
-            // userId is handled by createFolder using current user
-          };
-          const created = await createFolder({
-            ...cleanFolder,
-            userId
-          } as any);
+          const folderName = folder.name ? folder.name.trim() : "";
+          let folderId: string;
+
+          if (folderName && existingFoldersMap.has(folderName)) {
+             folderId = existingFoldersMap.get(folderName)!;
+          } else {
+              // Clean folder object for creation
+              const cleanFolder = {
+                name: folder.name,
+                // userId is handled by createFolder using current user
+              };
+              const created = await createFolder({
+                ...cleanFolder,
+                userId
+              } as any);
+              folderId = created.$id;
+              result.summary.foldersCreated++;
+              if (folderName) existingFoldersMap.set(folderName, folderId);
+          }
 
           // Map old ID to new ID
           if (folder.$id) {
-            folderIdMapping.set(folder.$id, created.$id);
+            folderIdMapping.set(folder.$id, folderId);
           }
-          result.summary.foldersCreated++;
         } catch (e) {
           console.error("Failed to restore folder", e);
         }
@@ -505,6 +578,20 @@ export class ImportService {
     }
   }
 
+  private normalizeUrl(url?: string | null): string {
+    if (!url) return "";
+    try {
+      // Remove protocol and www.
+      let normalized = url.trim().toLowerCase();
+      normalized = normalized.replace(/^(https?:\/\/)?(www\.)?/, "");
+      // Remove trailing slash
+      normalized = normalized.replace(/\/$/, "");
+      return normalized;
+    } catch {
+      return (url || "").toLowerCase();
+    }
+  }
+
   private async throttle() {
     // Basic throttling: 500ms delay between operations
     // This prevents flooding Appwrite with requests in a tight loop
@@ -514,23 +601,43 @@ export class ImportService {
   private async importFolders(
     folders: Omit<Folders, "$id" | "$createdAt" | "$updatedAt">[],
     mappedData: MappedImportData,
+    existingFoldersMap?: Map<string, string>
   ): Promise<Map<string, string>> {
     const folderIdMapping = new Map<string, string>();
+
+    // Pre-populate with existing folders if available
+    if (existingFoldersMap) {
+        existingFoldersMap.forEach((id, name) => {
+            folderIdMapping.set(name, id);
+        });
+    }
 
     for (let i = 0; i < folders.length; i++) {
       await this.throttle(); // Throttle
       try {
         const folder = folders[i];
-        const createdFolder = await createFolder(folder);
+        const folderName = folder.name.trim();
+        
+        let folderId: string;
+
+        // Check if folder already exists
+        if (existingFoldersMap && existingFoldersMap.has(folderName)) {
+            folderId = existingFoldersMap.get(folderName)!;
+        } else {
+            const createdFolder = await createFolder(folder);
+            folderId = createdFolder.$id;
+            // Update map for subsequent lookups
+            if (existingFoldersMap) existingFoldersMap.set(folderName, folderId);
+        }
 
         // Map the original placeholder ID to the real ID
         const placeholderId = `folder_${i}`;
-        folderIdMapping.set(placeholderId, createdFolder.$id);
+        folderIdMapping.set(placeholderId, folderId);
 
         // Also map by name for convenience
-        folderIdMapping.set(folder.name, createdFolder.$id);
+        folderIdMapping.set(folder.name, folderId);
       } catch (error) {
-        console.error("Failed to create folder:", folders[i].name, error);
+        console.error("Failed to create/map folder:", folders[i].name, error);
         // Continue with other folders
       }
     }
