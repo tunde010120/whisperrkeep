@@ -307,7 +307,7 @@ export class ImportService {
 
       const folders = parsedData.folders || [];
       let credentials = parsedData.credentials || [];
-      const totpSecrets = parsedData.totpSecrets || [];
+      let totpSecrets = parsedData.totpSecrets || [];
 
       // Check against existing data
       this.updateProgress({
@@ -322,8 +322,7 @@ export class ImportService {
 
       const existingFoldersMap = new Map<string, string>(); // Name -> ID
       const existingTotpMap = new Set<string>(); // SecretKey
-      let credentials = parsedData.credentials || [];
-      let totpSecrets = parsedData.totpSecrets || [];
+      // credentials and totpSecrets are already declared above
 
       try {
         const [existingCreds, existingFolders, existingTotps] = await Promise.all([

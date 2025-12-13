@@ -57,7 +57,6 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [dangerLoading, setDangerLoading] = useState(false);
   const [vaultTimeout, setVaultTimeoutState] = useState(getVaultTimeout());
-  const [vaultTimeout, setVaultTimeoutState] = useState(getVaultTimeout());
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] =
     useState(false);
   const [deleteStep, setDeleteStep] = useState<
@@ -809,8 +808,6 @@ export default function SettingsPage() {
             </Button>
           </div>
         </div>
-          />
-        )}
         {isExportModalOpen && (
           <Dialog open={isExportModalOpen} onClose={() => setIsExportModalOpen(false)}>
             <div className="p-6">
