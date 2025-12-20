@@ -98,11 +98,11 @@ export function Header({ onMenuClick }: HeaderProps) {
               </span>
             </div>
             <hr className="my-1 border-border" />
-            <Link href="/settings">
+            <a href={`https://${process.env.NEXT_PUBLIC_AUTH_SUBDOMAIN}.${process.env.NEXT_PUBLIC_DOMAIN}/settings?source=${encodeURIComponent(window.location.origin)}`}>
               <button className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent rounded-md">
                 Settings
               </button>
-            </Link>
+            </a>
             <button
               className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent rounded-md text-destructive"
               onClick={logout}

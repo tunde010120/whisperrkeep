@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useCallback,
   ReactNode,
 } from "react";
 import {
@@ -44,33 +45,101 @@ export function AppwriteProvider({ children }: { children: ReactNode }) {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const verbose = process.env.NODE_ENV === "development";
 
+  const attemptSilentAuth = useCallback(async () => {
+    if (typeof window === "undefined") return;
+
+    const authSubdomain = process.env.NEXT_PUBLIC_AUTH_SUBDOMAIN;
+    const domain = process.env.NEXT_PUBLIC_DOMAIN;
+    if (!authSubdomain || !domain) return;
+
+    return new Promise<void>((resolve) => {
+      const iframe = document.createElement("iframe");
+      iframe.src = `https://${authSubdomain}.${domain}/silent-check`;
+      iframe.style.display = "none";
+
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve();
+      }, 5000);
+
+      const handleIframeMessage = (event: MessageEvent) => {
+        if (event.origin !== `https://${authSubdomain}.${domain}`) return;
+
+        if (
+          event.data?.type === "idm:auth-status" &&
+          event.data.status === "authenticated"
+        ) {
+          logDebug("[auth] Silent auth discovered session");
+          fetchUser();
+          cleanup();
+          resolve();
+        } else if (event.data?.type === "idm:auth-status") {
+          cleanup();
+          resolve();
+        }
+      };
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        window.removeEventListener("message", handleIframeMessage);
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      };
+
+      window.addEventListener("message", handleIframeMessage);
+      document.body.appendChild(iframe);
+    });
+  }, []);
+
   // Fetch current user and check master password status
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     setLoading(true);
     try {
       const account = await appwriteAccount.get();
       setUser(account);
 
-      if (verbose) logDebug("[auth] account.get success", { hasAccount: !!account });
+      if (verbose)
+        logDebug("[auth] account.get success", { hasAccount: !!account });
 
-      // Check if user needs master password
       if (account) {
         const hasMp = await hasMasterpass(account.$id);
         const unlocked = masterPassCrypto.isVaultUnlocked();
         if (verbose)
-          logDebug("[auth] master password status", { hasMasterpass: hasMp, unlocked });
+          logDebug("[auth] master password status", {
+            hasMasterpass: hasMp,
+            unlocked,
+          });
         setNeedsMasterPassword(!hasMp || !unlocked);
       } else {
         setNeedsMasterPassword(false);
       }
-    } catch (e) {
+    } catch (e: any) {
       if (verbose) logWarn("[auth] account.get error", { error: e });
-      setUser(null);
-      setNeedsMasterPassword(false);
+
+      // Try silent discovery if unauthenticated
+      if (e.code === 401) {
+        await attemptSilentAuth();
+        // Check once more
+        try {
+          const account = await appwriteAccount.get();
+          setUser(account);
+          return;
+        } catch { }
+      }
+
+      const isNetworkError = !e.response && e.message?.includes('Network Error') || e.message?.includes('Failed to fetch');
+      if (!isNetworkError) {
+        setUser(null);
+        setNeedsMasterPassword(false);
+      } else {
+        logWarn("[auth] Network error, retaining last session state");
+      }
+    } finally {
+      setLoading(false);
+      setIsAuthReady(true);
     }
-    setLoading(false);
-    setIsAuthReady(true);
-  };
+  }, [attemptSilentAuth, verbose]);
 
   useEffect(() => {
     fetchUser();
@@ -89,8 +158,7 @@ export function AppwriteProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("vault-locked", handleVaultLocked);
       window.removeEventListener("storage", handleStorageChange);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchUser]);
 
   const refresh = async () => {
     await fetchUser();
