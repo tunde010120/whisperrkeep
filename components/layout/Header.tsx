@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Link from "next/link";
 import { Menu, Moon, Sun, Monitor, User, Sparkles } from "lucide-react";
 import { useTheme } from "@/app/providers";
 import { useAppwrite } from "@/app/appwrite-provider";

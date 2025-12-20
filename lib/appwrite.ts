@@ -25,20 +25,52 @@ import { sanitizeString } from "@/lib/validation";
 function normalizeEndpoint(ep?: string): string {
   const raw = (ep || "").trim();
   if (!raw) return "";
-  // Remove trailing slashes
   const cleaned = raw.replace(/\/+$/, "");
-  // Ensure it ends with /v1 exactly once
   if (/\/v1$/.test(cleaned)) return cleaned;
   return `${cleaned}/v1`;
 }
 
-export const appwriteClient = new Client()
-  .setEndpoint(normalizeEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT))
-  .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!);
+// Client is initialized lazily or with a safe check
+const getAppwriteClient = () => {
+  const client = new Client();
+  const endpoint = normalizeEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT);
+  const project = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
 
-export const appwriteAccount = new Account(appwriteClient);
-export const appwriteDatabases = new Databases(appwriteClient);
-export const appwriteAvatars = new Avatars(appwriteClient);
+  if (endpoint) client.setEndpoint(endpoint);
+  if (project) client.setProject(project);
+
+  return client;
+};
+
+// Services are getters to ensure client is ready and to avoid top-level side effects during build
+let _client: Client | null = null;
+export const getClient = () => {
+  if (!_client) _client = getAppwriteClient();
+  return _client;
+};
+
+let _account: Account | null = null;
+export const getAccount = () => {
+  if (!_account) _account = new Account(getClient());
+  return _account;
+};
+
+let _databases: Databases | null = null;
+export const getDatabases = () => {
+  if (!_databases) _databases = new Databases(getClient());
+  return _databases;
+};
+
+let _avatars: Avatars | null = null;
+export const getAvatars = () => {
+  if (!_avatars) _avatars = new Avatars(getClient());
+  return _avatars;
+};
+
+export const appwriteClient = getClient();
+export const appwriteAccount = getAccount();
+export const appwriteDatabases = getDatabases();
+export const appwriteAvatars = getAvatars();
 
 export { ID, Query };
 
@@ -344,49 +376,49 @@ export class AppwriteService {
   ): Promise<Credentials> {
     const sanitizedData = this.sanitizeCredentialData(data);
     const encryptedData = await this.encryptDocumentFields(sanitizedData, "credentials");
-    
+
     // Ensure itemType is present, default to 'login'
     if (!encryptedData.itemType) {
-        encryptedData.itemType = "login";
+      encryptedData.itemType = "login";
     }
 
     // Validate password presence for login items
     if (encryptedData.itemType === "login" && !encryptedData.password) {
-        console.error("[AppwriteService] Password missing for credential:", data.name);
-        throw new Error("Password is required for login credentials. It may be empty or encryption failed.");
+      console.error("[AppwriteService] Password missing for credential:", data.name);
+      throw new Error("Password is required for login credentials. It may be empty or encryption failed.");
     }
 
     console.log("[AppwriteService] Creating Credential...", {
-        dbId: APPWRITE_DATABASE_ID,
-        collId: APPWRITE_COLLECTION_CREDENTIALS_ID,
-        userId: data.userId,
-        permissions: [
-            Permission.read(Role.user(data.userId)),
-            Permission.update(Role.user(data.userId)),
-            Permission.delete(Role.user(data.userId)),
-        ]
+      dbId: APPWRITE_DATABASE_ID,
+      collId: APPWRITE_COLLECTION_CREDENTIALS_ID,
+      userId: data.userId,
+      permissions: [
+        Permission.read(Role.user(data.userId)),
+        Permission.update(Role.user(data.userId)),
+        Permission.delete(Role.user(data.userId)),
+      ]
     });
 
     try {
-        const doc = await appwriteDatabases.createDocument(
-          APPWRITE_DATABASE_ID,
-          APPWRITE_COLLECTION_CREDENTIALS_ID,
-          ID.unique(),
-          encryptedData,
-          [
-            Permission.read(Role.user(data.userId)),
-            Permission.update(Role.user(data.userId)),
-            Permission.delete(Role.user(data.userId)),
-          ]
-        );
-        console.log("[AppwriteService] Credential Created Successfully:", doc.$id);
-        return (await this.decryptDocumentFields(
-          doc,
-          "credentials",
-        )) as Credentials;
+      const doc = await appwriteDatabases.createDocument(
+        APPWRITE_DATABASE_ID,
+        APPWRITE_COLLECTION_CREDENTIALS_ID,
+        ID.unique(),
+        encryptedData,
+        [
+          Permission.read(Role.user(data.userId)),
+          Permission.update(Role.user(data.userId)),
+          Permission.delete(Role.user(data.userId)),
+        ]
+      );
+      console.log("[AppwriteService] Credential Created Successfully:", doc.$id);
+      return (await this.decryptDocumentFields(
+        doc,
+        "credentials",
+      )) as Credentials;
     } catch (createError) {
-        console.error("[AppwriteService] Create Credential FAILED:", createError);
-        throw createError;
+      console.error("[AppwriteService] Create Credential FAILED:", createError);
+      throw createError;
     }
   }
 
@@ -416,8 +448,8 @@ export class AppwriteService {
     data: Omit<Folders, "$id" | "$createdAt" | "$updatedAt">,
   ): Promise<Folders> {
     const sanitizedData = {
-        ...data,
-        name: sanitizeString(data.name, 100),
+      ...data,
+      name: sanitizeString(data.name, 100),
     };
     const doc = await appwriteDatabases.createDocument(
       APPWRITE_DATABASE_ID,
@@ -594,16 +626,16 @@ export class AppwriteService {
   static async syncPasskeyStatus(userId: string): Promise<void> {
     const entries = await this.listKeychainEntries(userId);
     const hasPasskey = entries.some(e => e.type === 'passkey');
-    
+
     const userDoc = await this.getUserDoc(userId);
     if (userDoc && userDoc.$id) {
       // Only update if different to save writes
       if (!!userDoc.isPasskey !== hasPasskey) {
         await appwriteDatabases.updateDocument(
-            APPWRITE_DATABASE_ID,
-            APPWRITE_COLLECTION_USER_ID,
-            userDoc.$id,
-            { isPasskey: hasPasskey }
+          APPWRITE_DATABASE_ID,
+          APPWRITE_COLLECTION_USER_ID,
+          userDoc.$id,
+          { isPasskey: hasPasskey }
         );
       }
     }
@@ -616,7 +648,7 @@ export class AppwriteService {
     // Remove ALL passkeys from keychain
     const entries = await this.listKeychainEntries(userId);
     const passkeyEntries = entries.filter(e => e.type === 'passkey');
-    
+
     await Promise.all(passkeyEntries.map(e => this.deleteKeychainEntry(e.$id)));
 
     // Clear flags on user doc
@@ -906,7 +938,7 @@ export class AppwriteService {
   ): Promise<Folders> {
     const sanitizedData = { ...data };
     if (sanitizedData.name) {
-        sanitizedData.name = sanitizeString(sanitizedData.name, 100);
+      sanitizedData.name = sanitizeString(sanitizedData.name, 100);
     }
     const doc = await appwriteDatabases.updateDocument(
       APPWRITE_DATABASE_ID,
@@ -1008,7 +1040,7 @@ export class AppwriteService {
   // --- Sanitization Helpers ---
   private static sanitizeCredentialData(data: Partial<Credentials>): Partial<Credentials> {
     const sanitized = { ...data };
-    
+
     // Sanitize string fields that might be displayed as HTML
     if (sanitized.name) sanitized.name = sanitizeString(sanitized.name, 100);
     if (sanitized.username) sanitized.username = sanitizeString(sanitized.username, 255);
@@ -1017,10 +1049,10 @@ export class AppwriteService {
     // sanitizeString removes HTML tags which should be safe for URLs unless they are weird
     if (sanitized.url) sanitized.url = sanitizeString(sanitized.url, 2048);
     if (sanitized.notes) sanitized.notes = sanitizeString(sanitized.notes, 10000);
-    
+
     // Custom fields are JSON strings, we trust the validation/parser there or sanitize individual string values if we parse it.
     // For now, we leave customFields as is, assuming validation happened before.
-    
+
     return sanitized;
   }
 
@@ -1694,7 +1726,7 @@ export async function resetMasterpassAndWipe(userId: string): Promise<void> {
               .catch((e) => console.warn(`Failed to delete doc ${doc.$id}`, e))
           )
         );
-        
+
         // If we got fewer than limit, we're done
         if (response.documents.length < 50) {
           hasMore = false;
@@ -1723,9 +1755,9 @@ export async function searchCredentials(
   userId: string,
   searchTerm: string,
 ): Promise<Credentials[]> {
-    // Since 'name' and other fields are encrypted, server-side search won't work effectively.
-    // We strictly use client-side search on decrypted data.
-    return await AppwriteService.searchCredentials(userId, searchTerm);
+  // Since 'name' and other fields are encrypted, server-side search won't work effectively.
+  // We strictly use client-side search on decrypted data.
+  return await AppwriteService.searchCredentials(userId, searchTerm);
 }
 
 /**
@@ -1744,7 +1776,7 @@ export async function listCredentials(
  * Use this for operations that require the full dataset, like search or export.
  */
 export async function listAllCredentials(
-  userId:string,
+  userId: string,
   queries: string[] = [],
 ): Promise<Credentials[]> {
   return await AppwriteService.listAllCredentials(userId, queries);
@@ -1855,7 +1887,7 @@ export async function redirectIfAuthenticated(
 export async function logoutAppwrite() {
   try {
     await appwriteAccount.deleteSession("current");
-  } catch {}
+  } catch { }
   // Clear vault/session data
   if (typeof window !== "undefined") {
     sessionStorage.clear();

@@ -36,6 +36,11 @@ const AppwriteContext = createContext<AppwriteContextType | undefined>(
   undefined,
 );
 
+interface AppwriteError extends Error {
+  code?: number;
+  response?: unknown;
+}
+
 export function AppwriteProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(
     null,
@@ -44,6 +49,51 @@ export function AppwriteProvider({ children }: { children: ReactNode }) {
   const [needsMasterPassword, setNeedsMasterPassword] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const verbose = process.env.NODE_ENV === "development";
+
+  // Fetch current user and check master password status
+  const fetchUser = useCallback(async (isRetry = false) => {
+    if (!isRetry) setLoading(true);
+    try {
+      const account = await appwriteAccount.get();
+      setUser(account);
+
+      if (verbose)
+        logDebug("[auth] account.get success", { hasAccount: !!account });
+
+      if (account) {
+        const hasMp = await hasMasterpass(account.$id);
+        const unlocked = masterPassCrypto.isVaultUnlocked();
+        if (verbose)
+          logDebug("[auth] master password status", {
+            hasMasterpass: hasMp,
+            unlocked,
+          });
+        setNeedsMasterPassword(!hasMp || !unlocked);
+      } else {
+        setNeedsMasterPassword(false);
+      }
+    } catch (err: unknown) {
+      const e = err as AppwriteError;
+      if (verbose) logWarn("[auth] account.get error", { error: e });
+
+      const isNetworkError = !e.response && (e.message?.includes('Network Error') || e.message?.includes('Failed to fetch'));
+
+      if (e.code === 401) {
+        // If it's a 401 and not a retry, let attemptSilentAuth handle it
+        if (!isRetry) throw e;
+        setUser(null);
+        setNeedsMasterPassword(false);
+      } else if (!isNetworkError) {
+        setUser(null);
+        setNeedsMasterPassword(false);
+      } else {
+        logWarn("[auth] Network error, retaining last session state");
+      }
+    } finally {
+      if (!isRetry) setLoading(false);
+      setIsAuthReady(true);
+    }
+  }, [verbose]);
 
   const attemptSilentAuth = useCallback(async () => {
     if (typeof window === "undefined") return;
@@ -70,7 +120,7 @@ export function AppwriteProvider({ children }: { children: ReactNode }) {
           event.data.status === "authenticated"
         ) {
           logDebug("[auth] Silent auth discovered session");
-          fetchUser();
+          fetchUser(true); // retry fetch
           cleanup();
           resolve();
         } else if (event.data?.type === "idm:auth-status") {
@@ -90,59 +140,25 @@ export function AppwriteProvider({ children }: { children: ReactNode }) {
       window.addEventListener("message", handleIframeMessage);
       document.body.appendChild(iframe);
     });
-  }, []);
+  }, [fetchUser]);
 
-  // Fetch current user and check master password status
-  const fetchUser = useCallback(async () => {
-    setLoading(true);
-    try {
-      const account = await appwriteAccount.get();
-      setUser(account);
-
-      if (verbose)
-        logDebug("[auth] account.get success", { hasAccount: !!account });
-
-      if (account) {
-        const hasMp = await hasMasterpass(account.$id);
-        const unlocked = masterPassCrypto.isVaultUnlocked();
-        if (verbose)
-          logDebug("[auth] master password status", {
-            hasMasterpass: hasMp,
-            unlocked,
-          });
-        setNeedsMasterPassword(!hasMp || !unlocked);
-      } else {
-        setNeedsMasterPassword(false);
-      }
-    } catch (e: any) {
-      if (verbose) logWarn("[auth] account.get error", { error: e });
-
-      // Try silent discovery if unauthenticated
-      if (e.code === 401) {
-        await attemptSilentAuth();
-        // Check once more
-        try {
-          const account = await appwriteAccount.get();
-          setUser(account);
-          return;
-        } catch { }
-      }
-
-      const isNetworkError = !e.response && e.message?.includes('Network Error') || e.message?.includes('Failed to fetch');
-      if (!isNetworkError) {
-        setUser(null);
-        setNeedsMasterPassword(false);
-      } else {
-        logWarn("[auth] Network error, retaining last session state");
-      }
-    } finally {
-      setLoading(false);
-      setIsAuthReady(true);
-    }
-  }, [attemptSilentAuth, verbose]);
-
+  // Initial load and authentication check orchestration
   useEffect(() => {
-    fetchUser();
+    const initAuth = async () => {
+      try {
+        await fetchUser();
+      } catch (err: unknown) {
+        const e = err as AppwriteError;
+        if (e.code === 401) {
+          await attemptSilentAuth();
+        }
+      } finally {
+        setLoading(false);
+        setIsAuthReady(true);
+      }
+    };
+
+    initAuth();
 
     // Listen for vault lock events
     const handleVaultLocked = () => {
@@ -158,7 +174,7 @@ export function AppwriteProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("vault-locked", handleVaultLocked);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [fetchUser]);
+  }, [fetchUser, attemptSilentAuth]);
 
   const refresh = async () => {
     await fetchUser();
