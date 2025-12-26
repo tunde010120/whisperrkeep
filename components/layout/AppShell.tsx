@@ -15,10 +15,9 @@ import {
   Share2,
   Upload,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Button, Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider, Typography, Paper } from "@mui/material";
 import { useTheme } from "@/app/providers";
 import { useAppwrite } from "@/app/appwrite-provider";
-import clsx from "clsx";
 import { masterPassCrypto } from "@/app/(protected)/masterpass/logic";
 import { Navbar } from "./Navbar";
 import dynamic from "next/dynamic";
@@ -143,7 +142,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const ThemeSymbol = ThemeIcon();
 
   if (isSimplifiedLayout) {
-    return <div className="min-h-screen bg-background">{children}</div>;
+    return <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>{children}</Box>;
   }
 
   if (!loading && !user) {
@@ -151,62 +150,82 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
       <Navbar />
 
-      <div className="flex-1 flex w-full overflow-x-hidden pt-16">
-        <aside
-          className={clsx(
-            "hidden lg:block animate-fadeIn",
-            "fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-card border-r overflow-y-auto z-30",
-          )}
+      <Box sx={{ flex: 1, display: 'flex', w: '100%', overflowX: 'hidden', pt: 8 }}>
+        <Box
+          component="aside"
+          sx={{
+            display: { xs: 'none', lg: 'block' },
+            position: 'fixed',
+            left: 0,
+            top: 64,
+            height: 'calc(100vh - 64px)',
+            width: 256,
+            bgcolor: 'background.paper',
+            borderRight: '1px solid',
+            borderColor: 'divider',
+            overflowY: 'auto',
+            zIndex: 30
+          }}
           aria-label="Primary sidebar navigation"
         >
-          <div className="flex flex-col h-full">
-            <nav className="flex-1 px-2 py-3 space-y-1">
+          <Box sx={{ display: 'flex', flexDirection: 'column', h: '100%' }}>
+            <List sx={{ flex: 1, px: 1, py: 1.5 }}>
               {navigation.map((item) => {
                 const isActive = pathname === item.href;
-                const isBig = item.big;
                 return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={clsx(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-accent hover:text-accent-foreground",
-                      isBig && "text-base py-3",
-                    )}
-                  >
-                    <item.icon className={clsx("h-5 w-5", isBig && "h-7 w-7")} />
-                    {item.name}
-                  </Link>
+                  <ListItem key={item.name} disablePadding sx={{ mb: 0.5 }}>
+                    <ListItemButton
+                      component={Link}
+                      href={item.href}
+                      sx={{
+                        borderRadius: 1,
+                        bgcolor: isActive ? 'primary.main' : 'transparent',
+                        color: isActive ? 'background.default' : 'text.primary',
+                        '&:hover': {
+                          bgcolor: isActive ? 'primary.dark' : 'rgba(255, 255, 255, 0.05)',
+                        },
+                        py: item.big ? 1.5 : 1
+                      }}
+                    >
+                      <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}>
+                        <item.icon size={item.big ? 24 : 20} />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.name}
+                        primaryTypographyProps={{
+                          variant: item.big ? 'body1' : 'body2',
+                          fontWeight: 600
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
                 );
               })}
-            </nav>
-            <div className="px-2 py-3 border-t space-y-2">
+            </List>
+            <Divider />
+            <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start gap-3"
+                variant="text"
+                size="small"
+                fullWidth
+                startIcon={<ThemeSymbol size={18} />}
                 onClick={() => {
-                  const themes: Array<"light" | "dark" | "system"> = [
-                    "light",
-                    "dark",
-                    "system",
-                  ];
+                  const themes: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
                   const nextTheme = themes[(themes.indexOf(theme) + 1) % themes.length];
                   setTheme(nextTheme);
                 }}
+                sx={{ justifyContent: 'flex-start', color: 'text.secondary' }}
               >
-                <ThemeSymbol className="h-4 w-4" />
                 {`${theme.charAt(0).toUpperCase() + theme.slice(1)} theme`}
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start gap-3"
+                variant="text"
+                size="small"
+                fullWidth
+                startIcon={<Shield size={18} />}
                 onClick={() => {
                   masterPassCrypto.lockNow();
                   if (!masterPassCrypto.isVaultUnlocked()) {
@@ -214,31 +233,52 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     router.replace("/masterpass");
                   }
                 }}
+                sx={{ justifyContent: 'flex-start', color: 'text.secondary' }}
               >
-                <Shield className="h-4 w-4" />
                 Lock now
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start gap-3 text-destructive hover:text-destructive"
+                variant="text"
+                size="small"
+                fullWidth
+                startIcon={<LogOut size={18} />}
                 onClick={logout}
+                sx={{ justifyContent: 'flex-start', color: 'error.main', '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.08)' } }}
               >
-                <LogOut className="h-4 w-4" />
                 Logout
               </Button>
-            </div>
-          </div>
-        </aside>
+            </Box>
+          </Box>
+        </Box>
 
-        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden lg:ml-64">
-          <main className="flex-1 px-2 py-4 sm:px-3 md:px-4 lg:px-4 pb-20 lg:pb-6 overflow-x-hidden max-w-full animate-fadeIn">
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflowX: 'hidden', ml: { lg: '256px' } }}>
+          <Box component="main" sx={{ flex: 1, px: { xs: 2, sm: 3, md: 4 }, py: 4, pb: { xs: 10, lg: 4 }, overflowX: 'hidden', maxWidth: '100%' }}>
             {children}
-          </main>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Box>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t-2 border-border flex lg:hidden justify-around items-center h-16 pb-[env(safe-area-inset-bottom)] box-content shadow-floating animate-fadeIn">
+      <Paper
+        component="nav"
+        elevation={0}
+        sx={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          bgcolor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(20px)',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          display: { xs: 'flex', lg: 'none' },
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          height: 64,
+          pb: 'env(safe-area-inset-bottom)',
+          boxSizing: 'content-box'
+        }}
+      >
         {navigation
           .filter((item) => item.name !== "Import")
           .map((item) => {
@@ -247,46 +287,71 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             if (isBig) {
               return (
-                <Link
+                <Box
                   key={item.name}
+                  component={Link}
                   href={item.href}
-                  className="flex flex-col items-center justify-center -mt-10"
-                  aria-label={item.name}
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mt: -5,
+                    textDecoration: 'none'
+                  }}
                 >
-                  <div className={clsx(
-                    "h-16 w-16 rounded-full flex items-center justify-center shadow-hover border-4 border-background transition-transform active:scale-95 shadow-ceramic",
-                    isActive ? "bg-primary text-primary-foreground" : "bg-primary text-primary-foreground"
-                  )}>
-                    <item.icon className="h-8 w-8" />
-                  </div>
-                  <span className="text-[10px] font-bold mt-1 uppercase tracking-tighter text-primary">{item.name}</span>
-                </Link>
+                  <Box
+                    sx={{
+                      h: 64,
+                      w: 64,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      bgcolor: 'primary.main',
+                      color: 'background.default',
+                      border: '4px solid',
+                      borderColor: 'background.default',
+                      boxShadow: '0 4px 20px rgba(0, 240, 255, 0.4)',
+                      transition: 'transform 0.2s',
+                      '&:active': { transform: 'scale(0.95)' }
+                    }}
+                  >
+                    <item.icon size={32} />
+                  </Box>
+                  <Typography variant="caption" sx={{ fontWeight: 700, mt: 0.5, textTransform: 'uppercase', color: 'primary.main', fontSize: 10 }}>
+                    {item.name}
+                  </Typography>
+                </Box>
               );
             }
 
             return (
-              <Link
+              <Box
                 key={item.name}
+                component={Link}
                 href={item.href}
-                className={clsx(
-                  "flex flex-col items-center justify-center p-2 min-w-0 flex-1 transition-colors",
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-primary",
-                )}
-                aria-label={item.name}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  p: 1,
+                  minWidth: 0,
+                  flex: 1,
+                  textDecoration: 'none',
+                  color: isActive ? 'primary.main' : 'text.secondary',
+                  transition: 'color 0.2s'
+                }}
               >
-                <item.icon
-                  className={clsx(
-                    "mb-1 flex-shrink-0",
-                    "h-5 w-5",
-                  )}
-                />
-                <span className="text-[10px] truncate font-medium">{item.name}</span>
-              </Link>
+                <item.icon size={20} style={{ marginBottom: 4 }} />
+                <Typography variant="caption" sx={{ fontSize: 10, fontWeight: 500, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.name}
+                </Typography>
+              </Box>
             );
           })}
-      </nav>
+      </Paper>
 
       {user && (
         <PasskeySetup
@@ -301,6 +366,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           trustUnlocked={true}
         />
       )}
-    </div>
+    </Box>
   );
 }
