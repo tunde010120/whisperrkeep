@@ -21,8 +21,10 @@ import { useAppwrite } from "@/app/appwrite-provider";
 import clsx from "clsx";
 import { masterPassCrypto } from "@/app/(protected)/masterpass/logic";
 import { Navbar } from "./Navbar";
-import { PasskeySetup } from "@/components/overlays/passkeySetup";
+import dynamic from "next/dynamic";
 import type { Models } from "appwrite";
+
+const PasskeySetup = dynamic(() => import("@/components/overlays/passkeySetup").then(mod => mod.PasskeySetup), { ssr: false });
 
 interface ExtendedUser extends Models.User<Models.Preferences> {
   isPasskey?: boolean;
