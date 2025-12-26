@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/layout/AppShell";
+import { Box } from "@mui/material";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -30,9 +31,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
       <body>
         <Providers>
-          <div className="min-h-screen w-full">
+          <Box sx={{ minHeight: '100vh', width: '100%' }}>
             <AppShell>{children}</AppShell>
-          </div>
+          </Box>
         </Providers>
       </body>
     </html>
