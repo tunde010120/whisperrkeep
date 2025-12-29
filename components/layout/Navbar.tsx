@@ -10,7 +10,7 @@ import ShieldIcon from "@mui/icons-material/Shield";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import SettingsIcon from "@mui/icons-material/Settings";
 import LockIcon from "@mui/icons-material/Lock";
-import { useTheme } from "@/app/providers";
+import { useTheme } from "@mui/material";
 import Link from "next/link";
 import { useAppwrite } from "@/app/appwrite-provider";
 import { 

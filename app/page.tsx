@@ -374,7 +374,7 @@ export default function LandingPage() {
                           </Box>
                         </Stack>
                         <IconButton size="small" sx={{ color: 'rgba(255, 255, 255, 0.3)' }}>
-                          <CopyIcon sx={{ fontSize: 14 }} />
+                          <ContentCopyIcon sx={{ fontSize: 14 }} />
                         </IconButton>
                       </Box>
                     ))}

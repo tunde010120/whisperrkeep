@@ -9,7 +9,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
-import { useTheme } from "@/app/providers";
+import { useTheme } from "@mui/material";
 import { useAppwrite } from "@/app/appwrite-provider";
 import { 
   AppBar, 

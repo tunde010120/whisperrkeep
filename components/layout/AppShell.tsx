@@ -30,7 +30,7 @@ import {
   alpha,
   useTheme as useMuiTheme
 } from "@mui/material";
-import { useTheme } from "@/app/providers";
+import { useTheme } from "@mui/material";
 import { useAppwrite } from "@/app/appwrite-provider";
 import { masterPassCrypto } from "@/app/(protected)/masterpass/logic";
 import { Navbar } from "./Navbar";
