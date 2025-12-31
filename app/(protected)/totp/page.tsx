@@ -1,21 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Grid, 
-  Paper, 
-  IconButton, 
-  TextField, 
-  CircularProgress, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  alpha, 
-  Chip 
+import {
+  Box,
+  Typography,
+  Button,
+  Grid,
+  Paper,
+  IconButton,
+  TextField,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  alpha,
+  Chip
 } from "@mui/material";
 import ShieldIcon from "@mui/icons-material/Shield";
 import AddIcon from "@mui/icons-material/Add";
@@ -27,7 +27,9 @@ import { listTotpSecrets, deleteTotpSecret, listFolders } from "@/lib/appwrite";
 import { authenticator } from "otplib";
 import toast from "react-hot-toast";
 import VaultGuard from "@/components/layout/VaultGuard";
-import NewTotpDialog from "@/components/app/totp/new";
+import dynamic from 'next/dynamic';
+
+const NewTotpDialog = dynamic(() => import("@/components/app/totp/new"), { ssr: false });
 import { useSudo } from "@/app/context/SudoContext";
 
 export default function TOTPPage() {
@@ -196,17 +198,17 @@ export default function TOTPPage() {
               {totp.accountName || "No account name"}
             </Typography>
             {folderName && (
-              <Chip 
-                label={folderName} 
-                size="small" 
-                sx={{ 
-                  height: 20, 
-                  fontSize: '0.65rem', 
-                  fontWeight: 700, 
+              <Chip
+                label={folderName}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
                   bgcolor: 'rgba(255, 255, 255, 0.05)',
                   color: 'text.secondary',
                   borderRadius: '6px'
-                }} 
+                }}
               />
             )}
           </Box>
@@ -277,9 +279,9 @@ export default function TOTPPage() {
               Manage your two-factor authentication codes
             </Typography>
           </Box>
-          <Button 
-            variant="contained" 
-            startIcon={<AddIcon sx={{ fontSize: 18 }} />} 
+          <Button
+            variant="contained"
+            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
             onClick={() => setShowNew(true)}
             sx={{ borderRadius: '12px', fontWeight: 700, px: 3 }}
           >
@@ -392,17 +394,17 @@ export default function TOTPPage() {
             )}
           </DialogContent>
           <DialogActions sx={{ p: 3, gap: 1 }}>
-            <Button 
-              fullWidth 
-              variant="outlined" 
+            <Button
+              fullWidth
+              variant="outlined"
               onClick={() => setDeleteDialog({ open: false, id: null })}
               sx={{ borderRadius: '12px' }}
             >
               Cancel
             </Button>
-            <Button 
-              fullWidth 
-              variant="contained" 
+            <Button
+              fullWidth
+              variant="contained"
               color="error"
               onClick={() => {
                 if (deleteDialog.id) {
